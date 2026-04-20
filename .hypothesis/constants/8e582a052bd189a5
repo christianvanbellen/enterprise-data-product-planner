@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\schema\nodes.py
+# hypothesis_version: 6.151.14
+
+['Asset', 'Column', 'GraphNode', 'asset_id', 'asset_internal_id', 'asset_type', 'col_id', 'column_role', 'data_type_family', 'database', 'description', 'domain_candidates', 'grain_keys', 'is_enabled', 'is_nullable', 'materialization', 'name', 'normalized_name', 'ordinal_position', 'path', 'raw_data_type', 'row_count', 'schema_name', 'semantic_candidates', 'tags', 'tests', 'version_hash']

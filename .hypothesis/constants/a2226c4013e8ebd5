@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\spec\log.py
+# hypothesis_version: 6.151.14
+
+[0.0, '%Y-%m-%d', '*.json', '.md', '0123456789abcdef', 'assembled_at_utc', 'composite_score', 'current.json', 'current.md', 'current_version', 'index.json', 'initiative_id', 'initiative_name', 'path', 'render_error', 'rendered_at_utc', 'spec_id', 'utf-8', 'v*.json']

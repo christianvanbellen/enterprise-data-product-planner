@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\ingestion\contracts\asset.py
+# hypothesis_version: 6.151.14
+
+['dbt_model', 'source_table', 'table', 'unknown', 'view']

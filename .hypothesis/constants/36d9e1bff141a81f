@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\ingestion\normalisation\roles.py
+# hypothesis_version: 6.151.14
+
+[' %', '_at', '_date', '_datetime', '_id', '_timestamp', 'amount', 'attribute', 'boolean', 'boolean_flag', 'category', 'code', 'count', 'date', 'date_', 'description', 'expressed as a', 'flag', 'id', 'id_', 'identifier', 'indicator', 'measure', 'name', 'numeric', 'numeric_attribute', 'pct', 'percent', 'percentage', 'premium', 'rate', 'ratio', 'segment', 'semi_structured', 'status', 'string', 'sum', 'timestamp', 'total', 'type', 'unknown', 'value']

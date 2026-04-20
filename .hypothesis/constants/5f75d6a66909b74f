@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\ingestion\adapters\conformed_schema.py
+# hypothesis_version: 6.151.14
+
+['"properties"', '$schema', '::', 'No $schema key', 'No properties found', 'adapter', 'array', 'compatible', 'conformed_concept', 'conformed_data', 'conformed_schema', 'data_type', 'entity_count', 'field_count', 'items', 'json_schema_draft04', 'missing_fields', 'object', 'object_of_objects', 'properties', 'schema_type', 'source_file', 'type', 'unknown', 'utf-8', 'variant', 'warnings']

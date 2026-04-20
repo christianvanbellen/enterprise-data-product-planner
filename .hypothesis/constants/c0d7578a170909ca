@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\schema\edges.py
+# hypothesis_version: 6.151.14
+
+['BELONGS_TO_DOMAIN', 'BLOCKED_BY', 'COMPOSES_WITH', 'CONTAINS', 'DEPENDS_ON', 'DERIVES_FROM', 'DOCUMENTED_BY', 'ENABLES', 'HAS_COLUMN', 'IDENTIFIES', 'MEASURES', 'PRIMITIVE_COVERS', 'REPRESENTS', 'REQUIRES', 'TESTED_BY']

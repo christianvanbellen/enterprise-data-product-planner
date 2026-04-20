@@ -1,0 +1,16 @@
+tag_to_product_line:
+  eupi: european_professional_indemnity
+  d_o: directors_and_officers
+  general_aviation: general_aviation
+  london_cash_in_transit_and_general_specie: cash_in_transit_and_specie
+  contingency: contingency
+  dp: digital_platform
+
+tag_to_lineage_layer:
+  hx: historic_exchange
+  ll: liberty_link
+  gen2: gen2_mart
+  raw: raw_layer
+  source: source_table
+  bookends: conformed_bookends
+  semi_conformed: semi_conformed_mart

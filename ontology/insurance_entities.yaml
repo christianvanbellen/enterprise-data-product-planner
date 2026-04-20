@@ -1,0 +1,23 @@
+available_entities:
+  - policyholder
+  - broker
+  - line_of_business
+  - claim
+  - coverage
+  - policy
+  - pricing_component
+  - profitability_component
+  - exposure
+  - underwriter
+
+entities:
+  - policyholder
+  - broker
+  - line_of_business
+  - claim
+  - coverage
+  - policy
+  - pricing_component
+  - profitability_component
+  - exposure
+  - underwriter

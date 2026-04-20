@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\.venv\Lib\site-packages\anyio\streams\tls.py
+# hypothesis_version: 6.151.14
+
+[65536, 'PosArgsT', 'TLSAttribute', 'TLSConnectable', 'TLSListener', 'TLSStream', 'T_Retval']

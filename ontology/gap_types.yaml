@@ -1,0 +1,10 @@
+gap_types:
+  - missing_history
+  - weak_identifier
+  - incomplete_relationship
+  - missing_conformed_entity
+  - insufficient_documentation
+  - low_test_coverage
+  - insufficient_outcome_labels
+  - missing_event_timeline
+  - missing_source_system

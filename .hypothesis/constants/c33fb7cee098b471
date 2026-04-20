@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\.venv\Lib\site-packages\pydantic\version.py
+# hypothesis_version: 6.151.14
+
+['+', '.', '2.13.0', '2.46.0', ':', 'Name', 'VERSION', 'build_info', 'commit', 'dir_info', 'editable', 'email-validator', 'fastapi', 'mypy', 'platform', 'pydantic', 'pydantic version', 'pydantic-core build', 'pydantic-extra-types', 'pydantic-settings', 'pyright', 'python version', 'related packages', 'typing_extensions', 'unknown', 'version_info', '{:>30} {}']

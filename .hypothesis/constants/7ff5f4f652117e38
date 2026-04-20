@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\scripts\validate_graph.py
+# hypothesis_version: 6.151.14
+
+[1.0, '--bundle', '--graph', '--output', '--store', '; ', 'Asset', 'CONTAINS', 'DEPENDS_ON', 'HAS_COLUMN', '_BuildMeta', '__main__', 'asset_internal_id', 'assets', 'build_id', 'columns', 'confidence', 'created_by', 'derivation_method', 'edge_id', 'edge_type', 'edges.json', 'evidence', 'evidence_sources', 'explicit_metadata', 'internal_id', 'json', 'label', 'node_id', 'nodes.json', 'properties', 'review_status', 'rule_id', 'run1', 'run2', 'source_node_id', 'target_node_id', 'type', 'utf-8', 'value', 'version_hash']

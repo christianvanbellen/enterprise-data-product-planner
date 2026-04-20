@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\semantic\entity_mapper.py
+# hypothesis_version: 6.151.14
+
+[0.0, 0.4, 0.5, 0.6, 0.8, 'confidence', 'conformed_binding', 'contingency', 'coverage', 'digital_platform', 'entity_group', 'evidence', 'general_aviation', 'line_of_business', 'matched_fields', 'overlap_score', 'policy', 'policy_totals', 'pricing_component', 'product_line', 'rate_monitoring', 'signal_sources', 'signature_score', 'tag_product_line']

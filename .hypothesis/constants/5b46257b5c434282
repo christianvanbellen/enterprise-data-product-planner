@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\opportunity\gap_analyser.py
+# hypothesis_version: 6.151.14
+
+[0.0, 0.9, 1.0, 'claim_history', 'description', 'event_timeline', 'expiry_date', 'gap_type', 'inception_date', 'missing_history', 'primitive_id', 'primitive_maturity', 'yaml_research']

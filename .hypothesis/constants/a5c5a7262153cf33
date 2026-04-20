@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\spec\assembler.py
+# hypothesis_version: 6.151.14
+
+[0.5, 9999, ' + ', 'Asset', 'DEPENDS_ON', '_detail', '_experience', '_factor', '_inputs', '_load', '_measures', '_modifiers', '_monitoring', '_ops_', '_performance', '_policy', '_quote', '_rating', '_summary', '_total_our_share_usd', '_totals', '_war_', 'ai_agent', 'analytics_product', 'attribute', 'coverage_id', 'decision_support', 'description', 'domain_candidates', 'edge_type', 'final', 'full_spec', 'gap_brief', 'gap_type', 'grain not determined', 'grain_keys', 'hx_', 'incomplete_primitive', 'label', 'layer_id', 'measure', 'monitoring_dashboard', 'name', 'node_id', 'numeric_attribute', 'one row per ', 'one row per quote', 'pas_id', 'prediction', 'primitive_maturity', 'properties', 'quote_id', 'ready_now', 'settled', 'target_node_id', 'timestamp', 'ultimate', 'yaml_research']

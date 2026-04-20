@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\ingestion\normalisation\names.py
+# hypothesis_version: 6.151.14
+
+['-', '[^a-zA-Z0-9_]', '\\s+', '_', '_+']

@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\opportunity\planner.py
+# hypothesis_version: 6.151.14
+
+[0.0, 0.1, 0.3, 0.4, 0.5, 0.7, 0.8, 1.0, '0.00', '_', 'all_primitives', 'archetype', 'available_primitives', 'blocker_details', 'business_objective', 'business_value_score', 'composite_score', 'data_gaps', 'initiative_id', 'initiative_name', 'literature_name', 'missing_primitives', 'optional_primitives', 'output_type', 'readiness', 'ready_now', 'required_primitives', 'target_users']

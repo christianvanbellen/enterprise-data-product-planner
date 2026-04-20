@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\ingestion\contracts\lineage.py
+# hypothesis_version: 6.151.14
+
+[0.0, 1.0, 'confidence', 'depends_on', 'downstream_of', 'explicit_metadata', 'parsed_sql', 'reverse_index']

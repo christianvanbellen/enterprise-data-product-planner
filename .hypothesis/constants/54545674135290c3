@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\compiler\evidence.py
+# hypothesis_version: 6.151.14
+
+[0.5, 0.75, 0.95, 1.0, 'EvidenceRecord', 'auto', 'build_id', 'confidence', 'created_by', 'evidence_sources', 'review_status', 'rule_id', 'semantic_compiler_v1', 'timestamp_utc']

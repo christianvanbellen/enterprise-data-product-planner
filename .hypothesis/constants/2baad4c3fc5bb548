@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\spec\assembler.py
+# hypothesis_version: 6.151.14
+
+[0.5, 9999, 'Asset', 'DEPENDS_ON', 'description', 'domain_candidates', 'edge_type', 'full_spec', 'gap_brief', 'gap_type', 'grain_keys', 'incomplete_primitive', 'label', 'name', 'node_id', 'primitive_maturity', 'properties', 'ready_now', 'target_node_id', 'yaml_research']

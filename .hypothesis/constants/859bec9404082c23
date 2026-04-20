@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\ingestion\normalisation\dtypes.py
+# hypothesis_version: 6.151.14
+
+['array', 'bool', 'boolean', 'char', 'clob', 'date', 'datetime', 'decimal', 'double', 'float', 'int', 'json', 'map', 'nchar', 'number', 'numeric', 'nvarchar', 'object', 'real', 'semi_structured', 'string', 'struct', 'super', 'text', 'timestamp', 'unknown', 'varchar', 'variant']

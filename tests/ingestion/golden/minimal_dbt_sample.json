@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+    "dbt_version": "1.10.0",
+    "generated_at": "2026-01-01T00:00:00.000000Z",
+    "project_name": "test_project"
+  },
+  "entities": [
+    {
+      "unique_id": "model.test_project.raw_quotes",
+      "name": "raw_quotes",
+      "resource_type": "model",
+      "description": "Raw quote data from the source system",
+      "database": "test_db",
+      "schema": "raw",
+      "materialized": "table",
+      "tags": ["raw", "quotes"],
+      "upstream_dependencies": [],
+      "downstream_dependents": ["model.test_project.enriched_quotes"],
+      "path": "raw/raw_quotes.sql",
+      "package_name": "test_project",
+      "row_count": 1000,
+      "size_mb": 10.5,
+      "meta": {},
+      "diststyle": null,
+      "sortkeys": [],
+      "constraints": [],
+      "raw_sql": "select * from source",
+      "compiled_sql": "select * from raw.quotes_source",
+      "columns": [
+        {
+          "name": "quote_id",
+          "description": "Unique identifier for the quote",
+          "data_type": "varchar(36)",
+          "meta": {},
+          "tests": ["not_null", "unique"],
+          "is_nullable": "NO",
+          "ordinal_position": 1
+        },
+        {
+          "name": "premium_amount",
+          "description": "The gross written premium amount",
+          "data_type": "numeric(16,4)",
+          "meta": {},
+          "tests": [],
+          "is_nullable": "YES",
+          "ordinal_position": 2
+        },
+        {
+          "name": "created_at",
+          "description": "Timestamp when the quote was created",
+          "data_type": "timestamp",
+          "meta": {},
+          "tests": [],
+          "is_nullable": "YES",
+          "ordinal_position": 3
+        }
+      ]
+    },
+    {
+      "unique_id": "model.test_project.enriched_quotes",
+      "name": "enriched_quotes",
+      "resource_type": "model",
+      "description": "Enriched quote data with risk scores",
+      "database": "test_db",
+      "schema": "mart",
+      "materialized": "table",
+      "tags": ["mart", "quotes"],
+      "upstream_dependencies": ["model.test_project.raw_quotes"],
+      "downstream_dependents": [],
+      "path": "mart/enriched_quotes.sql",
+      "package_name": "test_project",
+      "row_count": 950,
+      "size_mb": 12.0,
+      "meta": {},
+      "diststyle": null,
+      "sortkeys": [],
+      "constraints": [],
+      "raw_sql": "select * from {{ ref('raw_quotes') }}",
+      "compiled_sql": "select * from raw.raw_quotes",
+      "columns": [
+        {
+          "name": "quote_id",
+          "description": "Unique identifier for the quote",
+          "data_type": "varchar(36)",
+          "meta": {},
+          "tests": ["not_null"],
+          "is_nullable": "NO",
+          "ordinal_position": 1
+        },
+        {
+          "name": "risk_score",
+          "description": "Computed risk score for the quote",
+          "data_type": "numeric(5,2)",
+          "meta": {},
+          "tests": [],
+          "is_nullable": "YES",
+          "ordinal_position": 2
+        },
+        {
+          "name": "status",
+          "description": "Current status of the quote",
+          "data_type": "varchar(50)",
+          "meta": {},
+          "tests": [],
+          "is_nullable": "YES",
+          "ordinal_position": 3
+        }
+      ]
+    }
+  ]
+}

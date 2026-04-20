@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\schema\nodes.py
+# hypothesis_version: 6.151.14
+
+['Asset', 'BusinessEntityNode', 'Column', 'DomainNode', 'GapNode', 'GraphNode', 'InitiativeNode', 'MetricNode', 'archetype', 'asset_id', 'asset_internal_id', 'asset_type', 'business_value_score', 'col_id', 'column_role', 'data_type_family', 'database', 'description', 'domain_candidates', 'domain_id', 'domain_name', 'entity_id', 'entity_label', 'gap_id', 'gap_type', 'grain_keys', 'graph_layer', 'initiative_id', 'initiative_key', 'initiative_name', 'is_enabled', 'is_nullable', 'lineage_layer', 'materialization', 'maturity_score', 'metric_id', 'metric_name', 'name', 'normalized_name', 'opportunity', 'ordinal_position', 'path', 'primitive_id', 'primitive_id_ref', 'primitive_name', 'product_lines', 'raw_data_type', 'readiness', 'row_count', 'schema_name', 'semantic', 'semantic_candidates', 'supporting_asset_ids', 'tags', 'tests', 'version_hash']

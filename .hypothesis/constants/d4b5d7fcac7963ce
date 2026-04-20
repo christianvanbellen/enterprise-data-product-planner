@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\opportunity\archetype_library.py
+# hypothesis_version: 6.151.14
+
+[0.25, 0.3, 0.35, 0.4, 0.45, 0.6, 0.7, 0.72, 0.75, 0.78, 0.8, 0.82, 0.83, 0.85, 0.88, 'actuaries', 'ai_agent', 'analytics_product', 'anomaly_detection', 'archetype', 'broker_attribution', 'business_objective', 'business_value_score', 'claims_experience', 'claims_team', 'copilot', 'decision_support', 'description', 'distribution_team', 'exposure_management', 'exposure_structure', 'finance', 'monitoring', 'monitoring_dashboard', 'optional_primitives', 'output_type', 'portfolio_managers', 'pricing_team', 'prioritization', 'product_leads', 'quote_lifecycle', 'recommendation', 'renewal_tracking', 'required_primitives', 'target_users', 'underwriters', 'underwriting_leads']

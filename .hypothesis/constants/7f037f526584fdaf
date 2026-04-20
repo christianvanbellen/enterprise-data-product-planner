@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\compiler\structural.py
+# hypothesis_version: 6.151.14
+
+[0.0, 1.0, 'DocObject', 'ENABLE_SQL_LINEAGE', 'Test', 'asset_id', 'canonical_asset', 'canonical_column', 'column_name', 'confidence', 'derivation_method', 'doc_id', 'false', 'has_description', 'ingestion_run_id', 'none', 'relation_type', 'status', 'structural.doc_node', 'structural.test_node', 'structural.tested_by', 'test_id', 'test_type', 'true', 'type', 'unknown', 'value']

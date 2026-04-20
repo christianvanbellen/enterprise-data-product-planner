@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\store\__init__.py
+# hypothesis_version: 6.151.14
+
+['json', 'neo4j']

@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\semantic\ontology_loader.py
+# hypothesis_version: 6.151.14
+
+['broker', 'broker_id', 'broker_name', 'broker_primary', 'brokerage_pct', 'commission', 'coverage', 'coverage_id', 'coverage_type', 'deductible_value', 'domains', 'elr', 'entities', 'excess', 'expiring_exposure', 'exposure', 'exposure_type', 'ggwp', 'gnwp', 'id_qpd', 'insured_name', 'jurisdiction', 'limit', 'modtech_gnwp', 'ontology', 'policy', 'policy_currency', 'policy_id', 'policy_number', 'policy_reference', 'policy_term', 'policyholder', 'policyholder_id', 'policyholder_name', 'premium', 'pricing_component', 'primary_coverage', 'profitability', 'quote', 'quote_id', 'quote_name', 'quote_reference', 'rate', 'section', 'sold_ggwp', 'sold_gnwp', 'sold_to_modtech', 'sold_to_tech', 'tech_gnwp', 'underwriter', 'underwriter_id', 'utf-8']

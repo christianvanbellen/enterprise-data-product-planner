@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\schema\nodes.py
+# hypothesis_version: 6.151.14
+
+['Asset', 'BusinessEntityNode', 'Column', 'DomainNode', 'GraphNode', 'MetricNode', 'asset_id', 'asset_internal_id', 'asset_type', 'col_id', 'column_role', 'data_type_family', 'database', 'description', 'domain_candidates', 'domain_id', 'domain_name', 'entity_id', 'entity_label', 'grain_keys', 'graph_layer', 'is_enabled', 'is_nullable', 'lineage_layer', 'materialization', 'metric_id', 'metric_name', 'name', 'normalized_name', 'ordinal_position', 'path', 'product_lines', 'raw_data_type', 'row_count', 'schema_name', 'semantic', 'semantic_candidates', 'tags', 'tests', 'version_hash']

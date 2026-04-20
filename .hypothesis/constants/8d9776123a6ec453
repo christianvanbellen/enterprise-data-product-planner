@@ -1,0 +1,4 @@
+# file: C:\Users\chris\chris_dev\enterprise-data-product-planner\graph\semantic\compiler.py
+# hypothesis_version: 6.151.14
+
+[0.0, 0.6, 0.85, 0.9, 1.0, 'DEPENDS_ON', 'column_role', 'confidence', 'edge_type', 'graph_layer', 'measure', 'ontology', 'semantic', 'semantic.domain_node', 'semantic.entity_node', 'semantic.identifies', 'semantic.measures', 'semantic.metric_node', 'semantic.represents', 'semantic_candidate', 'signal_source', 'signal_sources', 'source', 'type', 'value']

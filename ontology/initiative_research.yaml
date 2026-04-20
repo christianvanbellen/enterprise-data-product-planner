@@ -1,0 +1,264 @@
+sources:
+  - id: mckinsey_pnc_underwriting_2021
+    title: "How data and analytics are redefining excellence in P&C underwriting"
+    publisher: McKinsey & Company
+    year: 2021
+    url: https://www.mckinsey.com/industries/financial-services/our-insights/how-data-and-analytics-are-redefining-excellence-in-p-and-c-underwriting
+  - id: evident_ai_tracker_q4_2025
+    title: "Insurance AI deployments jump 87% as GenAI and agentic systems expand"
+    publisher: Evident / Reinsurance News
+    year: 2025
+    url: https://www.reinsurancene.ws/insurance-ai-deployments-jump-87
+  - id: lma_ai_survey_2025
+    title: "LMA AI Survey April 2025"
+    publisher: Lloyd's Market Association
+    year: 2025
+  - id: bcg_agentic_insurance_2025
+    title: "Multi-agent AI systems in underwriting"
+    publisher: BCG
+    year: 2025
+  - id: hyperexponential_insurance_ai_2025
+    title: "How AI and Data Technology Are Transforming the Insurance Industry"
+    publisher: hyperexponential
+    year: 2025
+    url: https://www.hyperexponential.com/blog/how-ai-and-data-technology-are-transforming-the-insurance-industry
+
+initiative_taxonomy:
+
+  # --- UNDERWRITING ---
+
+  - id: pricing_adequacy_monitoring
+    category: underwriting
+    literature_name: "Real-time portfolio monitoring and rate adequacy"
+    sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
+    literature_quote: "Leading carriers replaced periodic broad monitoring with real-time monitoring of market microsegments"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "rate_change_monitoring and pricing_decomposition primitives both fully present"
+    data_gaps: []
+
+  - id: underwriting_decision_support
+    category: underwriting
+    literature_name: "AI-assisted underwriting / decision support at point of bind"
+    sources: [mckinsey_pnc_underwriting_2021, bcg_agentic_insurance_2025]
+    literature_quote: "up to 36% improvement in underwriting efficiency"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "quote lifecycle, pricing decomposition, exposure structure all present"
+    data_gaps: []
+
+  - id: submission_triage
+    category: underwriting
+    literature_name: "Submission intake and automated triage"
+    sources: [lma_ai_survey_2025, hyperexponential_insurance_ai_2025]
+    literature_quote: "quote turnaround from three days to three minutes — 99% reduction (Hiscox)"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "requires unstructured submission documents and broker email data — not in analytical warehouse"
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "No submission/placement system data. Warehouse contains post-bind analytics only."
+        feasibility_rationale: "Submission triage requires pre-bind artefacts — broker emails, structured
+          submission forms, and placement platform data. The current warehouse is populated exclusively
+          from post-bind PAS and quote system exports; no placement or intake system feed is present."
+
+  - id: renewal_prioritisation
+    category: underwriting
+    literature_name: "Renewal prioritisation and portfolio triage"
+    sources: [mckinsey_pnc_underwriting_2021]
+    literature_quote: "identify simpler and more stable risks for light touch renewal underwriting"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "renewal_tracking and pricing_decomposition both present"
+    data_gaps: []
+
+  - id: risk_appetite_monitoring
+    category: underwriting
+    literature_name: "Appetite and accumulation monitoring"
+    sources: [hyperexponential_insurance_ai_2025]
+    literature_quote: "portfolio management agent can monitor concentration risk across geography, industry, and peril"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "exposure_structure and product_line_segmentation primitives present"
+    data_gaps: []
+
+  # --- PRICING ---
+
+  - id: technical_price_benchmarking
+    category: pricing
+    literature_name: "ML-based pricing model and technical rate benchmarking"
+    sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
+    literature_quote: "ML-based pricing models for pre-underwriting and prospect loss modeling"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "pricing_decomposition and rate_change_monitoring fully present"
+    data_gaps: []
+
+  - id: dynamic_pricing_model
+    category: pricing
+    literature_name: "Dynamic / behaviour-based pricing"
+    sources: [hyperexponential_insurance_ai_2025]
+    literature_quote: "dynamic pricing models that adjust premiums based on actual risk"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "requires real-time external risk data feeds and IoT/telematics — not applicable to specialty London Market"
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "Specialty lines do not use behaviour-based dynamic pricing. Not applicable to this market."
+        feasibility_rationale: "Dynamic pricing depends on real-time behavioural signals (telematics, IoT
+          sensor data, live risk feeds) that are structurally absent from a specialty London Market
+          warehouse. Specialty risks are individually underwritten; no continuous exposure feed or
+          in-period risk adjustment mechanism exists in the current data architecture."
+
+  # --- CLAIMS ---
+
+  - id: claims_experience_analysis
+    category: claims
+    literature_name: "Claims trend analysis and loss ratio benchmarking"
+    sources: [mckinsey_pnc_underwriting_2021, evident_ai_tracker_q4_2025]
+    literature_quote: "claims-trend analyses to identify product features that are proving more or less profitable"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "claims_experience primitive present across 32 assets"
+    data_gaps: []
+
+  - id: claims_severity_prediction
+    category: claims
+    literature_name: "Claims severity prediction and reserving adequacy"
+    sources: [evident_ai_tracker_q4_2025]
+    literature_quote: "claims management representing 37% of AI deployments"
+    feasibility_against_warehouse: needs_foundational_work
+    feasibility_rationale: "claims experience present but no outcome labels — no confirmed final settlement data to train severity model"
+    data_gaps:
+      - gap_type: insufficient_outcome_labels
+        description: "claims_experience shows incurred/paid but no finalised settlement outcomes for ML target variable"
+        feasibility_rationale: "Warehouse captures development-stage incurred and paid amounts but has no
+          closed-claim ultimate or confirmed settlement field. Supervised severity models require a
+          labelled target variable representing true ultimate loss."
+
+  - id: claims_fraud_detection
+    category: claims
+    literature_name: "Claims fraud detection and anomaly flagging"
+    sources: [evident_ai_tracker_q4_2025]
+    literature_quote: "fraud detection — patterns across claims or submissions flagged instantly"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "no fraud labels, no confirmed fraud outcomes, no interaction history for behavioural signals"
+    data_gaps:
+      - gap_type: insufficient_outcome_labels
+        description: "no confirmed fraud labels in warehouse"
+        feasibility_rationale: "No SIU referral outcomes, confirmed-fraud flags, or recovery dispositions
+          exist in the current warehouse. Without ground-truth labels, model thresholds cannot be
+          calibrated and alert precision is unknown."
+      - gap_type: missing_event_timeline
+        description: "no claims interaction or investigation event log"
+        feasibility_rationale: "Claims management system interaction records (adjuster contacts, status
+          changes, document uploads) are not currently ingested. Behavioural fraud signals such as
+          time-to-submission and re-open rates require timestamped events."
+
+  - id: claims_automation
+    category: claims
+    literature_name: "Automated claims processing and routing"
+    sources: [evident_ai_tracker_q4_2025, bcg_agentic_insurance_2025]
+    literature_quote: "end-to-end automation via agentic AI in claims management"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "requires operational claims system data and workflow event log — warehouse contains experience analytics only"
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "no claims management system operational data in warehouse"
+        feasibility_rationale: "Automated claims routing requires real-time operational feeds from the
+          claims management system — claim registration events, task assignments, reserve movements,
+          and adjuster workflow states. The warehouse contains only finalised experience analytics
+          (EUPI/GGLR/GNLR aggregates); no operational or transactional claims data is ingested."
+
+  # --- PORTFOLIO ---
+
+  - id: portfolio_drift_monitoring
+    category: portfolio
+    literature_name: "Portfolio drift and concentration monitoring"
+    sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
+    literature_quote: "real-time monitoring of market microsegments detecting impact in weeks not months"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "rate_change_monitoring and exposure_structure present"
+    data_gaps: []
+
+  - id: cat_exposure_monitoring
+    category: portfolio
+    literature_name: "Catastrophe exposure and accumulation monitoring"
+    sources: [hyperexponential_insurance_ai_2025]
+    literature_quote: "stress-test portfolio performance across multiple scenarios simultaneously"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "no CAT model outputs, no PML data, no geographic risk scoring in warehouse"
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "no catastrophe modelling system output in warehouse (RMS/AIR/Verisk feeds absent)"
+        feasibility_rationale: "CAT exposure monitoring requires probabilistic loss outputs from a
+          catastrophe modelling platform (RMS, AIR, or Verisk). No PML estimates, event-set loss
+          tables, or geographic risk scores are present in the warehouse. Coverage structure fields
+          (jurisdiction, limit, deductible) are available but cannot be converted to modelled loss
+          without a CAT engine integration."
+
+  # --- DISTRIBUTION ---
+
+  - id: broker_performance_intelligence
+    category: distribution
+    literature_name: "Broker and channel performance analytics"
+    sources: [lma_ai_survey_2025]
+    literature_quote: "broker-carrier connectivity as foundational to sustained performance"
+    feasibility_against_warehouse: ready_with_enablement
+    feasibility_rationale: "broker_attribution primitive present but broker_code missing — limits cross-portfolio broker analysis"
+    data_gaps:
+      - gap_type: weak_identifier
+        description: "broker_code absent — broker_primary exists but is a name string not a stable identifier"
+
+  - id: delegated_authority_monitoring
+    category: distribution
+    literature_name: "Delegated authority / coverholder performance monitoring"
+    sources: [lma_ai_survey_2025]
+    literature_quote: "delegated authority and broker-led placement models expanding"
+    feasibility_against_warehouse: needs_foundational_work
+    feasibility_rationale: "coverholder column present but no bordereaux-level data in warehouse"
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "no bordereaux ingestion in current warehouse — delegated authority data not modelled"
+        feasibility_rationale: "Coverholder monitoring requires bordereaux-level data — individual risk
+          schedules submitted by managing agents under binding authority agreements. While a
+          coverholder name field exists on policy records, no bordereaux ingestion pipeline is
+          present; all current data reflects direct-written business through the PAS."
+
+  # --- PROFITABILITY ---
+
+  - id: profitability_decomposition_assistant
+    category: profitability
+    literature_name: "Profitability decomposition and plan variance"
+    sources: [mckinsey_pnc_underwriting_2021]
+    literature_quote: "claims-trend analyses to identify product features proving more or less profitable"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "profitability_decomposition and pricing_decomposition present"
+    data_gaps: []
+
+  - id: loss_ratio_forecasting
+    category: profitability
+    literature_name: "Loss ratio forecasting and actuarial projection"
+    sources: [mckinsey_pnc_underwriting_2021]
+    literature_quote: "3 to 5 point improvement in loss ratios from leading analytics capabilities"
+    feasibility_against_warehouse: needs_foundational_work
+    feasibility_rationale: "ELR columns present but no time-series reserving triangles or development patterns in warehouse"
+    data_gaps:
+      - gap_type: missing_history
+        description: "no claims development triangles — incurred/paid present at point-in-time but not as development series"
+        feasibility_rationale: "Actuarial loss ratio projection requires claims development triangles —
+          incurred and paid amounts at successive evaluation dates for the same year-of-account
+          cohort. The warehouse holds only the most recent development snapshot per claim; no
+          historical evaluation series is retained, making chain-ladder and Bornhuetter-Ferguson
+          methods inapplicable without a new time-series ingestion pattern."
+
+  # --- COPILOTS / AGENTS ---
+
+  - id: renewal_pricing_copilot
+    category: copilot
+    literature_name: "Natural language underwriting copilot"
+    sources: [lma_ai_survey_2025, bcg_agentic_insurance_2025]
+    literature_quote: "underwriters repositioned as portfolio strategists supported by autonomous agents"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "quote_lifecycle, pricing, renewal_tracking all present — sufficient structured context for LLM grounding"
+    data_gaps: []
+
+  - id: product_line_performance_dashboard
+    category: monitoring
+    literature_name: "Product line and class of business performance view"
+    sources: [evident_ai_tracker_q4_2025]
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "product_line_segmentation and pricing_decomposition present across all 5 product lines"
+    data_gaps: []
