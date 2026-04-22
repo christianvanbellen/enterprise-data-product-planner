@@ -20,47 +20,35 @@ logger = logging.getLogger(__name__)
 # Tag mappings (loaded once at module level)                          #
 # ------------------------------------------------------------------ #
 
-_TAG_MAPPINGS_PATH = Path(__file__).parent.parent.parent / "ontology" / "tag_mappings.yaml"
+_ONTOLOGY_DIR = Path(__file__).parent.parent.parent / "ontology"
 _TAG_TO_PRODUCT_LINE: Dict[str, str] = {}
 _TAG_TO_LINEAGE_LAYER: Dict[str, str] = {}
+DOMAIN_KEYWORDS: Dict[str, List[str]] = {}
+GRAIN_KEY_CANDIDATES: set = set()
+SEMANTIC_MAP: Dict[str, str] = {}
 
 try:
     import yaml  # type: ignore
-    _raw_mappings = yaml.safe_load(_TAG_MAPPINGS_PATH.read_text(encoding="utf-8"))
-    _TAG_TO_PRODUCT_LINE = _raw_mappings.get("tag_to_product_line", {})
+
+    _raw_mappings = yaml.safe_load((_ONTOLOGY_DIR / "tag_mappings.yaml").read_text(encoding="utf-8"))
+    _TAG_TO_PRODUCT_LINE  = _raw_mappings.get("tag_to_product_line", {})
     _TAG_TO_LINEAGE_LAYER = _raw_mappings.get("tag_to_lineage_layer", {})
+
+    # Loaded from ontology/domain_keywords.yaml — edit that file to change domain assignment.
+    DOMAIN_KEYWORDS = yaml.safe_load((_ONTOLOGY_DIR / "domain_keywords.yaml").read_text(encoding="utf-8")) or {}
+
+    # Loaded from ontology/semantic_map.yaml — edit that file to change semantic candidates.
+    SEMANTIC_MAP = yaml.safe_load((_ONTOLOGY_DIR / "semantic_map.yaml").read_text(encoding="utf-8")) or {}
+
+    # Loaded from ontology/grain_keys.yaml — edit that file to change grain key recognition.
+    _grain_raw = yaml.safe_load((_ONTOLOGY_DIR / "grain_keys.yaml").read_text(encoding="utf-8"))
+    GRAIN_KEY_CANDIDATES = set(_grain_raw.get("candidates", []))
+
 except Exception as _exc:
-    logger.warning("Could not load tag_mappings.yaml (%s); product_lines/lineage_layer will be empty.", _exc)
+    logger.warning("Could not load ontology config (%s); domain/semantic/grain inference may be empty.", _exc)
 
 SOURCE_SYSTEM = "dbt"
 SOURCE_TYPE = "DbtMetadataAdapter"
-
-DOMAIN_KEYWORDS: Dict[str, List[str]] = {
-    "pricing":              ["premium", "rate", "pricing", "elr", "commission", "rarc"],
-    "profitability":        ["profitability", "sold_to", "modtech", "tech_gnwp"],
-    "underwriting":         ["underwriter", "quote", "coverage", "policyholder"],
-    "distribution":         ["broker", "channel", "branch"],
-    "portfolio_monitoring": ["inflation", "change", "monitoring", "expiring"],
-}
-
-GRAIN_KEY_CANDIDATES = {
-    "quote_id", "layer_id", "coverage_id", "policy_id", "pas_id", "customer_id"
-}
-
-SEMANTIC_MAP: Dict[str, str] = {
-    "quote_id":           "quote",
-    "layer_id":           "coverage_layer",
-    "coverage_id":        "coverage",
-    "policyholder_name":  "policyholder",
-    "broker_primary":     "broker",
-    "underwriter":        "underwriter",
-    "jurisdiction":       "jurisdiction",
-    "premium":            "premium",
-    "exposure":           "exposure",
-    "commission":         "commission",
-    "elr":                "expected_loss_ratio",
-    "rarc":               "risk_adjusted_rate_change",
-}
 
 
 def _infer_domains(

@@ -1,0 +1,120 @@
+# primitives.yaml — analytical capability primitive definitions (Phase 4)
+# Read by: CapabilityPrimitiveExtractor at module load.
+#
+# Each primitive defines what the warehouse must provide for it to be "confirmed":
+#   required_entities  — entity group labels that must have bound assets (from entity_groups.yaml)
+#   required_columns   — column normalised_names that must exist in the warehouse globally
+#   required_tags      — product_line tags (alternative to required_columns for tag-based matching)
+#   supporting_domains — domain filter for candidate assets
+#   description        — human-readable description surfaced in specs
+#
+# Matching logic:
+#   entity_score  = matched_entities / required_entities
+#   column_score  = matched_columns  / required_columns   (1.0 if required_columns is empty)
+#   maturity_score = (entity_score * 0.5) + (column_score * 0.5)
+#
+# Primitive states (driven by supporting_asset_ids count):
+#   confirmed  — supporting assets > 0  (solid teal hexagon in graph explorer)
+#   inferred   — supporting assets = 0 AND primitive has ENABLES edges (amber hexagon)
+#   unresolved — supporting assets = 0 AND no ENABLES edges (grey hexagon)
+#
+# See ARCHITECTURE.md — Dimensional role inference and The pricing_decomposition gap.
+
+primitives:
+
+  - id: quote_lifecycle
+    required_entities: [policy, coverage]
+    required_columns:
+      - quote_id
+      - inception_date
+      - expiry_date
+      - new_renewal
+      - policyholder_name
+    supporting_domains: [underwriting]
+    description: "End-to-end quote and policy lifecycle tracking"
+
+  - id: pricing_decomposition
+    required_entities: [pricing_component]
+    required_columns:
+      - tech_gnwp
+      - modtech_gnwp
+      - sold_gnwp
+      - tech_elc
+      - commission
+    supporting_domains: [pricing]
+    description: "Technical vs modified technical vs sold premium breakdown"
+    # NOTE: pricing_component is not yet in entity_groups.yaml — this primitive is currently
+    # INFERRED (amber hexagon). Add pricing_component to entity_groups.yaml + conformed schema
+    # to promote it to CONFIRMED and unblock 7 initiatives. See ARCHITECTURE.md.
+
+  - id: rate_change_monitoring
+    required_entities: [pricing_component]
+    required_columns:
+      - gross_rarc
+      - net_rarc
+      - claims_inflation
+      - breadth_of_cover_change
+    supporting_domains: [portfolio_monitoring, pricing]
+    description: "Risk-adjusted rate change tracking across renewals"
+
+  - id: claims_experience
+    required_entities: [claim]
+    required_columns:
+      - incurred
+      - paid
+      - burn_rate_ulr
+      - gg_ulr
+      - gn_ulr
+    supporting_domains: [underwriting]
+    description: "Historical claims development and loss ratios"
+
+  - id: profitability_decomposition
+    required_entities: [profitability_component]
+    required_columns:
+      - sold_to_modtech
+      - modtech_to_tech
+      - sold_to_plan
+      - target_to_plan
+    supporting_domains: [profitability]
+    description: "Multi-layer profitability variance analysis"
+    # NOTE: sold_to_plan is absent from the warehouse — this primitive has maturity 3/4.
+    # See docs/backlog.md — sold_to_plan absent section.
+
+  - id: broker_attribution
+    required_entities: [broker, policy]
+    required_columns:
+      - broker_primary
+      - broker_code
+      - brokerage_pct
+    supporting_domains: [distribution]
+    description: "Broker and channel performance attribution"
+
+  - id: renewal_tracking
+    required_entities: [policy, policyholder]
+    required_columns:
+      - new_renewal
+      - quote_id
+      - inception_date
+      - expiry_date
+    supporting_domains: [underwriting]
+    description: "New business vs renewal tracking with policyholder linkage"
+
+  - id: product_line_segmentation
+    required_entities: [line_of_business, coverage]
+    # Tag-based matching — no required_columns. Assets match if their product_lines tags
+    # intersect required_tags (from ontology/tag_mappings.yaml tag_to_product_line entries).
+    required_columns: []
+    required_tags: [eupi, d_o, general_aviation, contingency]
+    supporting_domains: [underwriting]
+    description: "Product line and class of business segmentation"
+
+  - id: exposure_structure
+    required_entities: [exposure, coverage]
+    required_columns:
+      - exposure
+      - limit_100
+      - deductible_value
+      - excess
+      - policy_coverage_jurisdiction
+    supporting_domains: [underwriting]
+    description: "Exposure, limit, deductible and jurisdiction structure"

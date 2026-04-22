@@ -1,3 +1,9 @@
+# tag_mappings.yaml — dbt tag → pipeline classification
+# Read by: DbtMetadataAdapter at module load (Phase 1)
+# Effect: tag_to_lineage_layer drives _infer_table_type() dimensional role inference in Phase 5.
+#         tag_to_product_line drives product_line_segmentation primitive matching in Phase 4.
+# See: docs/inputs.md — tag_mappings.yaml section
+
 tag_to_product_line:
   eupi: european_professional_indemnity
   d_o: directors_and_officers

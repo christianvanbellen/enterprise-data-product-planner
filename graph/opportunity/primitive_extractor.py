@@ -2,78 +2,44 @@
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Set
+
+import yaml
 
 from ingestion.contracts.bundle import CanonicalBundle
 
 # ---------------------------------------------------------------------------
-# Primitive definitions registry
+# Primitive definitions registry — loaded from ontology/primitives.yaml
 # ---------------------------------------------------------------------------
 
-PRIMITIVE_DEFINITIONS: Dict[str, Dict[str, Any]] = {
-    "quote_lifecycle": {
-        "required_entities": ["policy", "coverage"],
-        "required_columns": {"quote_id", "inception_date", "expiry_date",
-                             "new_renewal", "policyholder_name"},
-        "supporting_domains": ["underwriting"],
-        "description": "End-to-end quote and policy lifecycle tracking",
-    },
-    "pricing_decomposition": {
-        "required_entities": ["pricing_component"],
-        "required_columns": {"tech_gnwp", "modtech_gnwp", "sold_gnwp",
-                             "tech_elc", "commission"},
-        "supporting_domains": ["pricing"],
-        "description": "Technical vs modified technical vs sold premium breakdown",
-    },
-    "rate_change_monitoring": {
-        "required_entities": ["pricing_component"],
-        "required_columns": {"gross_rarc", "net_rarc", "claims_inflation",
-                             "breadth_of_cover_change"},
-        "supporting_domains": ["portfolio_monitoring", "pricing"],
-        "description": "Risk-adjusted rate change tracking across renewals",
-    },
-    "claims_experience": {
-        "required_entities": ["claim"],
-        "required_columns": {"incurred", "paid", "burn_rate_ulr",
-                             "gg_ulr", "gn_ulr"},
-        "supporting_domains": ["underwriting"],
-        "description": "Historical claims development and loss ratios",
-    },
-    "profitability_decomposition": {
-        "required_entities": ["profitability_component"],
-        "required_columns": {"sold_to_modtech", "modtech_to_tech",
-                             "sold_to_plan", "target_to_plan"},
-        "supporting_domains": ["profitability"],
-        "description": "Multi-layer profitability variance analysis",
-    },
-    "broker_attribution": {
-        "required_entities": ["broker", "policy"],
-        "required_columns": {"broker_primary", "broker_code", "brokerage_pct"},
-        "supporting_domains": ["distribution"],
-        "description": "Broker and channel performance attribution",
-    },
-    "renewal_tracking": {
-        "required_entities": ["policy", "policyholder"],
-        "required_columns": {"new_renewal", "quote_id",
-                             "inception_date", "expiry_date"},
-        "supporting_domains": ["underwriting"],
-        "description": "New business vs renewal tracking with policyholder linkage",
-    },
-    "product_line_segmentation": {
-        "required_entities": ["line_of_business", "coverage"],
-        "required_columns": set(),
-        "required_tags": {"eupi", "d_o", "general_aviation", "contingency"},
-        "supporting_domains": ["underwriting"],
-        "description": "Product line and class of business segmentation",
-    },
-    "exposure_structure": {
-        "required_entities": ["exposure", "coverage"],
-        "required_columns": {"exposure", "limit_100", "deductible_value",
-                             "excess", "policy_coverage_jurisdiction"},
-        "supporting_domains": ["underwriting"],
-        "description": "Exposure, limit, deductible and jurisdiction structure",
-    },
-}
+_PRIMITIVES_YAML_PATH = Path(__file__).parents[2] / "ontology" / "primitives.yaml"
+
+
+def _load_primitive_definitions() -> Dict[str, Dict[str, Any]]:
+    """Load PRIMITIVE_DEFINITIONS from ontology/primitives.yaml.
+
+    YAML stores required_columns and required_tags as lists; this function converts
+    them to sets for fast intersection in CapabilityPrimitiveExtractor.extract().
+    """
+    raw = yaml.safe_load(_PRIMITIVES_YAML_PATH.read_text(encoding="utf-8"))
+    result: Dict[str, Dict[str, Any]] = {}
+    for entry in raw.get("primitives", []):
+        pid = entry["id"]
+        defn: Dict[str, Any] = {
+            "required_entities":  list(entry.get("required_entities", [])),
+            "required_columns":   set(entry.get("required_columns", [])),
+            "supporting_domains": list(entry.get("supporting_domains", [])),
+            "description":        entry.get("description", ""),
+        }
+        if "required_tags" in entry:
+            defn["required_tags"] = set(entry["required_tags"])
+        result[pid] = defn
+    return result
+
+
+# Loaded from ontology/primitives.yaml — edit that file to change primitive definitions.
+PRIMITIVE_DEFINITIONS: Dict[str, Dict[str, Any]] = _load_primitive_definitions()
 
 
 # ---------------------------------------------------------------------------

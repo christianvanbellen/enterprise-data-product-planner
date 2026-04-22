@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from graph.opportunity.planner import OpportunityResult
 from graph.opportunity.primitive_extractor import CapabilityPrimitive
@@ -53,6 +53,9 @@ class SpecGenerationPipeline:
         render: bool = True,
         force_render: bool = False,
         archetype_lib: Any = None,   # InitiativeArchetypeLibrary, optional
+        on_progress: Optional[Callable[[int, int, str, str, str], None]] = None,
+        # on_progress(current, total, initiative_id, readiness, status)
+        # status: "rendered" | "cached" | "assembled" | "error"
     ) -> SpecGenerationReport:
 
         opp_by_id: Dict[str, OpportunityResult] = {
@@ -74,10 +77,14 @@ class SpecGenerationPipeline:
             errors=0,
         )
 
-        for init_id in initiative_ids:
+        total = len(initiative_ids)
+
+        for idx, init_id in enumerate(initiative_ids, 1):
             opp = opp_by_id.get(init_id)
             if not opp:
                 report.errors += 1
+                if on_progress:
+                    on_progress(idx, total, init_id, "unknown", "error")
                 continue
 
             # Assemble
@@ -97,6 +104,8 @@ class SpecGenerationPipeline:
                 report.assembled += 1
             except Exception as exc:  # noqa: BLE001
                 report.errors += 1
+                if on_progress:
+                    on_progress(idx, total, init_id, opp.readiness, "error")
                 continue
 
             # Check cache — only skip rendering if the cached entry was successfully rendered
@@ -107,6 +116,8 @@ class SpecGenerationPipeline:
                     report.entries.append(entry)
                     _, cached_md = log.load(spec.spec_id)
                     report.rendered_specs[init_id] = cached_md
+                    if on_progress:
+                        on_progress(idx, total, init_id, opp.readiness, "cached")
                     continue
 
             # Render
@@ -126,6 +137,10 @@ class SpecGenerationPipeline:
                 report.entries.append(entry)
             if rendered_md:
                 report.rendered_specs[init_id] = rendered_md
+
+            if on_progress:
+                status = "error" if render_error else ("rendered" if rendered_md else "assembled")
+                on_progress(idx, total, init_id, opp.readiness, status)
 
         return report
 

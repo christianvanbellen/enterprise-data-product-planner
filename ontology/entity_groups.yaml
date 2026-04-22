@@ -1,0 +1,22 @@
+# entity_groups.yaml — conformed schema groups eligible for asset binding (Phase 3)
+# Read by: ConformedFieldBinder at class load.
+# Effect: assets whose column names overlap >= overlap_threshold of a group's child fields
+#         receive a REPRESENTS edge to that entity's BusinessEntityNode in the semantic graph.
+#         These edges are the foundation of Phase 4 primitive matching.
+#
+# THE PRICING_COMPONENT GAP: add "pricing_component" to this list AND add a matching
+# parent term to the conformed schema JSON (children: commission, modtech_gnwp, sold_gnwp,
+# tech_elc, tech_gnwp) to resolve the amber hexagon on pricing_decomposition and unblock
+# 7 initiatives. See ARCHITECTURE.md.
+#
+# overlap_threshold: fraction of a group's child fields that must be present in an asset's
+# column set for the asset to bind. Range 0.0–1.0. Lower = broader binding, higher = stricter.
+
+overlap_threshold: 0.5
+
+groups:
+  - coverage
+  - policy
+  - policy_totals
+  - profitability_measures
+  - rate_monitoring

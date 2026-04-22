@@ -6,15 +6,24 @@ for a given entity group.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from pathlib import Path
+from typing import Dict, List, Set, Tuple
+
+import yaml
 
 from ingestion.contracts.bundle import CanonicalBundle
 
-# Entity groups from the conformed schema that have semantic counterparts.
-# Excludes *_totals groups (structural containers, not leaf entities).
-ENTITY_GROUPS = ["coverage", "policy", "policy_totals", "profitability_measures", "rate_monitoring"]
+_ONTOLOGY_DIR = Path(__file__).parent.parent.parent / "ontology"
 
-OVERLAP_THRESHOLD = 0.5
+
+def _load_entity_groups() -> Tuple[List[str], float]:
+    """Load ENTITY_GROUPS and OVERLAP_THRESHOLD from ontology/entity_groups.yaml."""
+    raw = yaml.safe_load((_ONTOLOGY_DIR / "entity_groups.yaml").read_text(encoding="utf-8"))
+    return raw.get("groups", []), float(raw.get("overlap_threshold", 0.5))
+
+
+# Loaded from ontology/entity_groups.yaml — edit that file to change binding behaviour.
+ENTITY_GROUPS, OVERLAP_THRESHOLD = _load_entity_groups()
 
 
 @dataclass

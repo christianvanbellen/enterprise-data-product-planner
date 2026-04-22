@@ -1,33 +1,75 @@
+# initiative_research.yaml — complete initiative definitions (Phases 4 and 5)
+# Read by: InitiativeArchetypeLibrary at module load.
+#
+# Each initiative entry combines two previously-separate concerns:
+#   Scoring fields   — archetype, required_primitives, optional_primitives,
+#                      business_value_score, implementation_effort_score,
+#                      target_users, business_objective, output_type
+#   Research fields  — category, literature_name, sources, literature_quote,
+#                      feasibility_against_warehouse, feasibility_rationale, data_gaps
+#
+# Composite score formula (Phase 4):
+#   score = business_value_score
+#         × readiness_multiplier        (ready_now=1.0 / ready_with_enablement=0.8 /
+#                                        needs_foundational_work=0.4 / not_feasible=0.1)
+#         × (1 + 0.2 × optional_ratio)  (bonus for available optional primitives)
+#         × (1 − 0.3 × effort_score)    (penalty for high implementation effort)
+#
+# feasibility_against_warehouse caps readiness regardless of primitive matching.
+# Valid values: ready_now | ready_with_enablement | needs_foundational_work | not_currently_feasible
+
+# ---------------------------------------------------------------------------
+# Bibliography
+# ---------------------------------------------------------------------------
+
 sources:
   - id: mckinsey_pnc_underwriting_2021
     title: "How data and analytics are redefining excellence in P&C underwriting"
     publisher: McKinsey & Company
     year: 2021
     url: https://www.mckinsey.com/industries/financial-services/our-insights/how-data-and-analytics-are-redefining-excellence-in-p-and-c-underwriting
+
   - id: evident_ai_tracker_q4_2025
     title: "Insurance AI deployments jump 87% as GenAI and agentic systems expand"
     publisher: Evident / Reinsurance News
     year: 2025
     url: https://www.reinsurancene.ws/insurance-ai-deployments-jump-87
+
   - id: lma_ai_survey_2025
     title: "LMA AI Survey April 2025"
     publisher: Lloyd's Market Association
     year: 2025
+
   - id: bcg_agentic_insurance_2025
     title: "Multi-agent AI systems in underwriting"
     publisher: BCG
     year: 2025
+
   - id: hyperexponential_insurance_ai_2025
     title: "How AI and Data Technology Are Transforming the Insurance Industry"
     publisher: hyperexponential
     year: 2025
     url: https://www.hyperexponential.com/blog/how-ai-and-data-technology-are-transforming-the-insurance-industry
 
+# ---------------------------------------------------------------------------
+# Initiative taxonomy
+# ---------------------------------------------------------------------------
+
 initiative_taxonomy:
 
   # --- UNDERWRITING ---
 
   - id: pricing_adequacy_monitoring
+    # Scoring
+    archetype: monitoring
+    required_primitives: [pricing_decomposition, rate_change_monitoring]
+    optional_primitives: [profitability_decomposition]
+    business_value_score: 0.85
+    implementation_effort_score: 0.35
+    target_users: [pricing_team, underwriting_leads]
+    business_objective: "Detect portfolios drifting below technical price before they impact loss ratios"
+    output_type: monitoring_dashboard
+    # Research
     category: underwriting
     literature_name: "Real-time portfolio monitoring and rate adequacy"
     sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
@@ -37,6 +79,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: underwriting_decision_support
+    # Scoring
+    archetype: decision_support
+    required_primitives: [quote_lifecycle, pricing_decomposition, exposure_structure]
+    optional_primitives: [claims_experience, renewal_tracking]
+    business_value_score: 0.88
+    implementation_effort_score: 0.60
+    target_users: [underwriters]
+    business_objective: "Provide data-driven context at point of underwriting decision"
+    output_type: decision_support
+    # Research
     category: underwriting
     literature_name: "AI-assisted underwriting / decision support at point of bind"
     sources: [mckinsey_pnc_underwriting_2021, bcg_agentic_insurance_2025]
@@ -46,6 +98,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: submission_triage
+    # Scoring
+    archetype: automation
+    required_primitives: []
+    optional_primitives: [quote_lifecycle]
+    business_value_score: 0.90
+    implementation_effort_score: 0.80
+    target_users: [underwriters, operations]
+    business_objective: "Reduce quote turnaround time by automated triage of incoming submissions"
+    output_type: ai_agent
+    # Research
     category: underwriting
     literature_name: "Submission intake and automated triage"
     sources: [lma_ai_survey_2025, hyperexponential_insurance_ai_2025]
@@ -60,6 +122,16 @@ initiative_taxonomy:
           from post-bind PAS and quote system exports; no placement or intake system feed is present."
 
   - id: renewal_prioritisation
+    # Scoring
+    archetype: prioritization
+    required_primitives: [renewal_tracking, pricing_decomposition]
+    optional_primitives: [profitability_decomposition, claims_experience]
+    business_value_score: 0.82
+    implementation_effort_score: 0.40
+    target_users: [underwriters, portfolio_managers]
+    business_objective: "Focus underwriter time on highest-value renewals"
+    output_type: decision_support
+    # Research
     category: underwriting
     literature_name: "Renewal prioritisation and portfolio triage"
     sources: [mckinsey_pnc_underwriting_2021]
@@ -69,6 +141,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: risk_appetite_monitoring
+    # Scoring
+    archetype: monitoring
+    required_primitives: [exposure_structure, product_line_segmentation]
+    optional_primitives: [quote_lifecycle]
+    business_value_score: 0.75
+    implementation_effort_score: 0.35
+    target_users: [exposure_management, portfolio_managers]
+    business_objective: "Monitor concentration risk across geography, industry, and peril"
+    output_type: monitoring_dashboard
+    # Research
     category: underwriting
     literature_name: "Appetite and accumulation monitoring"
     sources: [hyperexponential_insurance_ai_2025]
@@ -80,6 +162,16 @@ initiative_taxonomy:
   # --- PRICING ---
 
   - id: technical_price_benchmarking
+    # Scoring
+    archetype: decision_support
+    required_primitives: [pricing_decomposition, rate_change_monitoring]
+    optional_primitives: [claims_experience, profitability_decomposition]
+    business_value_score: 0.85
+    implementation_effort_score: 0.50
+    target_users: [pricing_team, actuaries]
+    business_objective: "Benchmark written rates against technical price across market segments"
+    output_type: analytics_product
+    # Research
     category: pricing
     literature_name: "ML-based pricing model and technical rate benchmarking"
     sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
@@ -89,6 +181,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: dynamic_pricing_model
+    # Scoring
+    archetype: automation
+    required_primitives: []
+    optional_primitives: []
+    business_value_score: 0.65
+    implementation_effort_score: 0.90
+    target_users: [pricing_team]
+    business_objective: "Adjust premiums dynamically based on real-time risk signals"
+    output_type: ai_agent
+    # Research
     category: pricing
     literature_name: "Dynamic / behaviour-based pricing"
     sources: [hyperexponential_insurance_ai_2025]
@@ -106,6 +208,16 @@ initiative_taxonomy:
   # --- CLAIMS ---
 
   - id: claims_experience_analysis
+    # Scoring
+    archetype: decision_support
+    required_primitives: [claims_experience, pricing_decomposition]
+    optional_primitives: [product_line_segmentation, exposure_structure]
+    business_value_score: 0.83
+    implementation_effort_score: 0.35
+    target_users: [actuaries, underwriters, claims_team]
+    business_objective: "Understand loss development patterns to improve pricing and reserving"
+    output_type: analytics_product
+    # Research
     category: claims
     literature_name: "Claims trend analysis and loss ratio benchmarking"
     sources: [mckinsey_pnc_underwriting_2021, evident_ai_tracker_q4_2025]
@@ -115,6 +227,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: claims_severity_prediction
+    # Scoring
+    archetype: prediction
+    required_primitives: [claims_experience]
+    optional_primitives: [exposure_structure]
+    business_value_score: 0.80
+    implementation_effort_score: 0.65
+    target_users: [actuaries, claims_team]
+    business_objective: "Predict ultimate claims severity to improve reserving adequacy"
+    output_type: analytics_product
+    # Research
     category: claims
     literature_name: "Claims severity prediction and reserving adequacy"
     sources: [evident_ai_tracker_q4_2025]
@@ -129,6 +251,16 @@ initiative_taxonomy:
           labelled target variable representing true ultimate loss."
 
   - id: claims_fraud_detection
+    # Scoring
+    archetype: anomaly_detection
+    required_primitives: []
+    optional_primitives: [claims_experience]
+    business_value_score: 0.75
+    implementation_effort_score: 0.70
+    target_users: [claims_team, finance]
+    business_objective: "Flag anomalous claims patterns for investigation"
+    output_type: monitoring_dashboard
+    # Research
     category: claims
     literature_name: "Claims fraud detection and anomaly flagging"
     sources: [evident_ai_tracker_q4_2025]
@@ -148,6 +280,16 @@ initiative_taxonomy:
           time-to-submission and re-open rates require timestamped events."
 
   - id: claims_automation
+    # Scoring
+    archetype: automation
+    required_primitives: []
+    optional_primitives: [claims_experience]
+    business_value_score: 0.85
+    implementation_effort_score: 0.85
+    target_users: [claims_team, operations]
+    business_objective: "Automate routine claims processing via end-to-end agentic AI"
+    output_type: ai_agent
+    # Research
     category: claims
     literature_name: "Automated claims processing and routing"
     sources: [evident_ai_tracker_q4_2025, bcg_agentic_insurance_2025]
@@ -165,6 +307,16 @@ initiative_taxonomy:
   # --- PORTFOLIO ---
 
   - id: portfolio_drift_monitoring
+    # Scoring
+    archetype: anomaly_detection
+    required_primitives: [rate_change_monitoring, exposure_structure]
+    optional_primitives: [product_line_segmentation, claims_experience]
+    business_value_score: 0.80
+    implementation_effort_score: 0.30
+    target_users: [portfolio_managers, actuaries]
+    business_objective: "Early warning of portfolio drift before it becomes a loss event"
+    output_type: monitoring_dashboard
+    # Research
     category: portfolio
     literature_name: "Portfolio drift and concentration monitoring"
     sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
@@ -174,6 +326,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: cat_exposure_monitoring
+    # Scoring
+    archetype: monitoring
+    required_primitives: []
+    optional_primitives: [exposure_structure]
+    business_value_score: 0.90
+    implementation_effort_score: 0.80
+    target_users: [exposure_management, portfolio_managers]
+    business_objective: "Stress-test portfolio performance across catastrophe scenarios"
+    output_type: monitoring_dashboard
+    # Research
     category: portfolio
     literature_name: "Catastrophe exposure and accumulation monitoring"
     sources: [hyperexponential_insurance_ai_2025]
@@ -192,6 +354,16 @@ initiative_taxonomy:
   # --- DISTRIBUTION ---
 
   - id: broker_performance_intelligence
+    # Scoring
+    archetype: recommendation
+    required_primitives: [broker_attribution, pricing_decomposition]
+    optional_primitives: [claims_experience, profitability_decomposition]
+    business_value_score: 0.78
+    implementation_effort_score: 0.45
+    target_users: [distribution_team, underwriting_leads]
+    business_objective: "Identify highest-quality broker relationships and optimise channel mix"
+    output_type: analytics_product
+    # Research
     category: distribution
     literature_name: "Broker and channel performance analytics"
     sources: [lma_ai_survey_2025]
@@ -203,6 +375,16 @@ initiative_taxonomy:
         description: "broker_code absent — broker_primary exists but is a name string not a stable identifier"
 
   - id: delegated_authority_monitoring
+    # Scoring
+    archetype: monitoring
+    required_primitives: [broker_attribution]
+    optional_primitives: [claims_experience]
+    business_value_score: 0.70
+    implementation_effort_score: 0.60
+    target_users: [distribution_team, portfolio_managers]
+    business_objective: "Monitor coverholder and delegated authority portfolio performance"
+    output_type: analytics_product
+    # Research
     category: distribution
     literature_name: "Delegated authority / coverholder performance monitoring"
     sources: [lma_ai_survey_2025]
@@ -220,6 +402,16 @@ initiative_taxonomy:
   # --- PROFITABILITY ---
 
   - id: profitability_decomposition_assistant
+    # Scoring
+    archetype: decision_support
+    required_primitives: [profitability_decomposition, pricing_decomposition]
+    optional_primitives: [broker_attribution]
+    business_value_score: 0.75
+    implementation_effort_score: 0.25
+    target_users: [actuaries, finance, underwriting_leads]
+    business_objective: "Understand drivers of profitability gap vs plan"
+    output_type: analytics_product
+    # Research
     category: profitability
     literature_name: "Profitability decomposition and plan variance"
     sources: [mckinsey_pnc_underwriting_2021]
@@ -229,6 +421,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: loss_ratio_forecasting
+    # Scoring
+    archetype: prediction
+    required_primitives: [claims_experience, profitability_decomposition]
+    optional_primitives: [pricing_decomposition]
+    business_value_score: 0.80
+    implementation_effort_score: 0.55
+    target_users: [actuaries, finance]
+    business_objective: "Project loss ratios and actuarial reserving requirements"
+    output_type: analytics_product
+    # Research
     category: profitability
     literature_name: "Loss ratio forecasting and actuarial projection"
     sources: [mckinsey_pnc_underwriting_2021]
@@ -247,6 +449,16 @@ initiative_taxonomy:
   # --- COPILOTS / AGENTS ---
 
   - id: renewal_pricing_copilot
+    # Scoring
+    archetype: copilot
+    required_primitives: [quote_lifecycle, pricing_decomposition, renewal_tracking]
+    optional_primitives: [claims_experience, broker_attribution]
+    business_value_score: 0.80
+    implementation_effort_score: 0.70
+    target_users: [underwriters]
+    business_objective: "Reduce time to gather context at renewal from hours to seconds"
+    output_type: ai_agent
+    # Research
     category: copilot
     literature_name: "Natural language underwriting copilot"
     sources: [lma_ai_survey_2025, bcg_agentic_insurance_2025]
@@ -256,6 +468,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: product_line_performance_dashboard
+    # Scoring
+    archetype: monitoring
+    required_primitives: [product_line_segmentation, pricing_decomposition]
+    optional_primitives: [claims_experience, profitability_decomposition]
+    business_value_score: 0.72
+    implementation_effort_score: 0.30
+    target_users: [product_leads, underwriting_management]
+    business_objective: "Single view of portfolio health by product line"
+    output_type: monitoring_dashboard
+    # Research
     category: monitoring
     literature_name: "Product line and class of business performance view"
     sources: [evident_ai_tracker_q4_2025]

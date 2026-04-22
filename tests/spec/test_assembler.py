@@ -232,22 +232,23 @@ def test_available_primitives_populated():
 
 
 def test_primitive_without_graph_assets_still_included():
-    """If supporting assets are not in graph, primitive still appears."""
+    """If supporting assets are not in graph, primitive still appears in summary."""
     opp = _make_opp(available_primitives=["prim_a"])
-    store = _make_graph_store(asset_ids=[])   # empty — no assets in graph
+    store = _make_graph_store(asset_ids=[])
     bundle = _make_bundle(asset_ids=[])
     prim = _make_primitive("prim_a", assets=["nonexistent_asset"])
     spec = SpecAssembler().assemble(opp, [prim], bundle, store, "build_x")
     assert len(spec.available_primitives) == 1
-    assert spec.available_primitives[0].supporting_assets == []
+    assert spec.available_primitives[0].primitive_id == "prim_a"
+    assert 0.0 <= spec.available_primitives[0].maturity_score <= 1.0
 
 
 # ------------------------------------------------------------------ #
 # Column detail for top-5 assets                                      #
 # ------------------------------------------------------------------ #
 
-def test_top_asset_has_column_detail():
-    """Asset with most upstream_dependents gets column detail."""
+def test_top_asset_grain_key_in_data_requisite():
+    """The most upstream-dependent supporting asset's grain key appears in DataRequisite."""
     opp = _make_opp(available_primitives=["prim_a"])
     store = _make_graph_store(
         asset_ids=["asset_001"],
@@ -256,25 +257,15 @@ def test_top_asset_has_column_detail():
     bundle = _make_bundle(asset_ids=["asset_001"])
     prim = _make_primitive("prim_a", assets=["asset_001"])
     spec = SpecAssembler().assemble(opp, [prim], bundle, store, "build_x")
-    asset_detail = spec.available_primitives[0].supporting_assets[0]
-    assert asset_detail.upstream_dependents == 3
-    assert len(asset_detail.columns) >= 1   # quote_id column from bundle
+    dr = spec.data_requisite
+    assert dr is not None
+    col_names = [c.column_name for c in dr.columns]
+    assert "quote_id" in col_names
 
 
-def test_column_detail_includes_description():
-    """ColumnDetail.description comes from CanonicalColumn.description."""
+def test_described_column_flows_to_data_requisite():
+    """A column with a description that matches a primitive should appear in DataRequisite."""
     prov = _make_prov()
-    col = CanonicalColumn(
-        internal_id="col_001",
-        asset_internal_id="asset_001",
-        name="rate_change_pct",
-        normalized_name="rate_change_pct",
-        description="Percentage rate change versus expiring policy",
-        data_type_family="float",
-        column_role="metric",
-        version_hash="abc",
-        provenance=prov,
-    )
     asset = CanonicalAsset(
         internal_id="asset_001",
         asset_type="dbt_model",
@@ -284,16 +275,45 @@ def test_column_detail_includes_description():
         version_hash="abc",
         provenance=prov,
     )
-    bundle = CanonicalBundle(assets=[asset], columns=[col])
+    bundle = CanonicalBundle(
+        assets=[asset],
+        columns=[
+            CanonicalColumn(
+                internal_id="col_id",
+                asset_internal_id="asset_001",
+                name="quote_id",
+                normalized_name="quote_id",
+                data_type_family="string",
+                column_role="identifier",
+                version_hash="abc",
+                provenance=prov,
+            ),
+            CanonicalColumn(
+                internal_id="col_m",
+                asset_internal_id="asset_001",
+                name="gross_rarc",
+                normalized_name="gross_rarc",
+                description="Gross risk-adjusted rate change",
+                data_type_family="float",
+                column_role="numeric_attribute",
+                version_hash="abc",
+                provenance=prov,
+            ),
+        ],
+    )
     opp = _make_opp(available_primitives=["prim_a"])
+    prim = _make_primitive("prim_a", assets=["asset_001"])
     store = _make_graph_store(
         asset_ids=["asset_001"],
         depends_on_targets=["asset_001"],
     )
-    prim = _make_primitive("prim_a", assets=["asset_001"])
     spec = SpecAssembler().assemble(opp, [prim], bundle, store, "build_x")
-    col_detail = spec.available_primitives[0].supporting_assets[0].columns[0]
-    assert col_detail.description == "Percentage rate change versus expiring policy"
+    dr = spec.data_requisite
+    assert dr is not None
+    # gross_rarc has a description → positive-inclusion filter should admit it
+    matched = [c for c in dr.columns if c.column_name == "gross_rarc"]
+    assert matched, "Described measure column should appear in DataRequisite"
+    assert matched[0].description == "Gross risk-adjusted rate change"
 
 
 # ------------------------------------------------------------------ #
@@ -373,11 +393,11 @@ def test_golden_spec_uds_has_spec_id(golden_spec_uds):
     assert all(c in "0123456789abcdef" for c in golden_spec_uds.spec_id)
 
 
-def test_golden_spec_uds_assets_sorted_by_upstream_dependents(golden_spec_uds):
-    for prim in golden_spec_uds.available_primitives:
-        deps = [a.upstream_dependents for a in prim.supporting_assets]
-        assert deps == sorted(deps, reverse=True), (
-            f"Primitive {prim.primitive_id} assets not sorted by upstream_dependents"
+def test_golden_spec_uds_primitives_have_valid_maturity(golden_spec_uds):
+    """All PrimitiveSummary entries must have a maturity_score in [0, 1]."""
+    for p in golden_spec_uds.available_primitives:
+        assert 0.0 <= p.maturity_score <= 1.0, (
+            f"Primitive {p.primitive_id} has out-of-range maturity_score {p.maturity_score}"
         )
 
 
@@ -398,73 +418,29 @@ def test_all_initiatives_assemble_without_error(
 
 
 # ------------------------------------------------------------------ #
-# OutputStructure tests                                                #
+# DataRequisite / output structure behaviour tests                     #
+# (OutputStructure is now internal — assertions go via DataRequisite)  #
 # ------------------------------------------------------------------ #
 
-def test_output_structure_not_none_for_all_initiatives(
+def test_data_requisite_not_none_for_full_spec_initiatives(
     golden_bundle, golden_graph_store, golden_primitives, golden_opps
 ):
+    """Every full_spec initiative must produce a non-None data_requisite."""
     assembler = SpecAssembler()
     for opp in golden_opps:
-        spec = assembler.assemble(
-            opp=opp,
-            primitives=golden_primitives,
-            bundle=golden_bundle,
-            graph_store=golden_graph_store,
-            graph_build_id="test_build",
-        )
-        assert spec.output_structure is not None, (
-            f"output_structure is None for {opp.initiative_id}"
-        )
-
-
-def test_monitoring_dashboard_has_nonempty_measures(
-    golden_bundle, golden_graph_store, golden_primitives, golden_opps
-):
-    assembler = SpecAssembler()
-    opp_by_id = {o.initiative_id: o for o in golden_opps}
-    for init_id in ("pricing_adequacy_monitoring", "portfolio_drift_monitoring"):
-        opp = opp_by_id.get(init_id)
-        if opp is None:
+        if opp.readiness not in ("ready_now", "ready_with_enablement"):
             continue
         spec = assembler.assemble(
-            opp=opp,
-            primitives=golden_primitives,
-            bundle=golden_bundle,
-            graph_store=golden_graph_store,
-            graph_build_id="test_build",
+            opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+            graph_store=golden_graph_store, graph_build_id="test_build",
         )
-        assert spec.output_structure is not None
-        assert spec.output_structure.structure_type == "monitoring_dashboard", init_id
-        assert len(spec.output_structure.measures) > 0, (
-            f"No measures for {init_id}"
+        assert spec.data_requisite is not None, (
+            f"data_requisite is None for full_spec {opp.initiative_id}"
         )
 
 
-def test_decision_support_has_target_variable(
-    golden_bundle, golden_graph_store, golden_primitives, golden_opps
-):
-    """claims_severity_prediction (prediction archetype) should expose target_variable."""
-    assembler = SpecAssembler()
-    opp_by_id = {o.initiative_id: o for o in golden_opps}
-    opp = opp_by_id.get("claims_severity_prediction")
-    if opp is None:
-        pytest.skip("claims_severity_prediction not found")
-    spec = assembler.assemble(
-        opp=opp,
-        primitives=golden_primitives,
-        bundle=golden_bundle,
-        graph_store=golden_graph_store,
-        graph_build_id="test_build",
-    )
-    assert spec.output_structure is not None
-    tv = spec.output_structure.target_variable
-    assert tv is not None, "target_variable should be set for prediction archetype"
-    assert tv.available is False, "should be blocked by insufficient_outcome_labels"
-    assert tv.gap_reason, "gap_reason should be non-empty"
-
-
-def test_gap_brief_no_primitives_gets_gap_brief_structure_type():
+def test_gap_brief_has_no_data_requisite():
+    """gap_brief initiatives with no primitives must have data_requisite = None."""
     opp = _make_opp(
         readiness="not_currently_feasible",
         yaml_data_gaps=[{"gap_type": "missing_source_system", "description": "No data"}],
@@ -474,49 +450,80 @@ def test_gap_brief_no_primitives_gets_gap_brief_structure_type():
     store = _make_graph_store(asset_ids=[])
     bundle = _make_bundle(asset_ids=[])
     spec = SpecAssembler().assemble(opp, [], bundle, store, "build_x")
-    assert spec.output_structure is not None
-    assert spec.output_structure.structure_type == "gap_brief"
+    assert spec.spec_type == "gap_brief"
+    assert spec.data_requisite is None
 
 
-def test_primary_grain_nonempty_for_full_spec_initiatives(
+def test_monitoring_dashboard_data_requisite_has_measures(
     golden_bundle, golden_graph_store, golden_primitives, golden_opps
 ):
+    """Monitoring dashboard full_specs must have at least one measure column."""
+    assembler = SpecAssembler()
+    opp_by_id = {o.initiative_id: o for o in golden_opps}
+    for init_id in ("pricing_adequacy_monitoring", "portfolio_drift_monitoring"):
+        opp = opp_by_id.get(init_id)
+        if opp is None:
+            continue
+        spec = assembler.assemble(
+            opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+            graph_store=golden_graph_store, graph_build_id="test_build",
+        )
+        dr = spec.data_requisite
+        assert dr is not None
+        measures = [c for c in dr.columns if c.role == "measure"]
+        assert measures, f"No measure-role columns in DataRequisite for {init_id}"
+
+
+def test_prediction_gap_brief_has_outcome_label_blocker(
+    golden_bundle, golden_graph_store, golden_primitives, golden_opps
+):
+    """claims_severity_prediction must have an insufficient_outcome_labels blocker."""
+    assembler = SpecAssembler()
+    opp_by_id = {o.initiative_id: o for o in golden_opps}
+    opp = opp_by_id.get("claims_severity_prediction")
+    if opp is None:
+        pytest.skip("claims_severity_prediction not found")
+    spec = assembler.assemble(
+        opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+        graph_store=golden_graph_store, graph_build_id="test_build",
+    )
+    assert spec.spec_type == "gap_brief"
+    gap_types = {b.gap_type for b in spec.blockers}
+    assert "insufficient_outcome_labels" in gap_types
+
+
+def test_data_requisite_grain_keys_nonempty_for_full_specs(
+    golden_bundle, golden_graph_store, golden_primitives, golden_opps
+):
+    """Full_spec initiatives with a primary source asset must have non-empty grain_keys."""
     assembler = SpecAssembler()
     for opp in golden_opps:
         if opp.readiness not in ("ready_now", "ready_with_enablement"):
             continue
         spec = assembler.assemble(
-            opp=opp,
-            primitives=golden_primitives,
-            bundle=golden_bundle,
-            graph_store=golden_graph_store,
-            graph_build_id="test_build",
+            opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+            graph_store=golden_graph_store, graph_build_id="test_build",
         )
-        assert spec.output_structure is not None
-        # Only assert grain is known when we have supporting assets;
-        # broker_performance_intelligence has primitives with no graph assets
-        if spec.output_structure.primary_source_asset:
-            assert len(spec.output_structure.primary_grain) > 0, (
-                f"Empty primary_grain for {opp.initiative_id}"
-            )
+        dr = spec.data_requisite
+        if dr and dr.primary_source_asset:
+            assert dr.grain_keys, f"Empty grain_keys for {opp.initiative_id}"
 
 
-def test_grain_description_nonempty_for_all_initiatives(
+def test_data_requisite_grain_description_nonempty(
     golden_bundle, golden_graph_store, golden_primitives, golden_opps
 ):
+    """Every full_spec data_requisite must have a non-empty grain_description."""
     assembler = SpecAssembler()
     for opp in golden_opps:
+        if opp.readiness not in ("ready_now", "ready_with_enablement"):
+            continue
         spec = assembler.assemble(
-            opp=opp,
-            primitives=golden_primitives,
-            bundle=golden_bundle,
-            graph_store=golden_graph_store,
-            graph_build_id="test_build",
+            opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+            graph_store=golden_graph_store, graph_build_id="test_build",
         )
-        assert spec.output_structure is not None
-        assert spec.output_structure.grain_description, (
-            f"Empty grain_description for {opp.initiative_id}"
-        )
+        dr = spec.data_requisite
+        if dr is not None:
+            assert dr.grain_description, f"Empty grain_description for {opp.initiative_id}"
 
 
 # ------------------------------------------------------------------ #
@@ -535,67 +542,61 @@ def test_compute_grain_description(keys, expected):
 
 
 # ------------------------------------------------------------------ #
-# FIX 1: time_columns / pipeline_timestamp tests                      #
+# DataRequisite column content tests                                   #
 # ------------------------------------------------------------------ #
 
-def test_time_columns_no_pdm_timestamp(
+def test_data_requisite_no_pdm_timestamp(
     golden_bundle, golden_graph_store, golden_primitives, golden_opps
 ):
-    """_pdm_last_update_timestamp must never appear in time_columns."""
+    """_pdm_last_update_timestamp must never appear as a requisite column."""
     assembler = SpecAssembler()
     for opp in golden_opps:
         if opp.readiness not in ("ready_now", "ready_with_enablement"):
             continue
         spec = assembler.assemble(
-            opp=opp,
-            primitives=golden_primitives,
-            bundle=golden_bundle,
-            graph_store=golden_graph_store,
-            graph_build_id="test_build",
+            opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+            graph_store=golden_graph_store, graph_build_id="test_build",
         )
-        os_ = spec.output_structure
-        assert os_ is not None
-        names = [c.name for c in os_.time_columns]
-        assert "_pdm_last_update_timestamp" not in names, (
-            f"_pdm_last_update_timestamp found in time_columns for {opp.initiative_id}"
-        )
+        dr = spec.data_requisite
+        if dr is not None:
+            names = [c.column_name for c in dr.columns]
+            assert "_pdm_last_update_timestamp" not in names, (
+                f"_pdm_last_update_timestamp found in DataRequisite for {opp.initiative_id}"
+            )
 
 
-def test_pipeline_timestamp_set_for_uds(golden_spec_uds):
-    """underwriting_decision_support assets carry _pdm_last_update_timestamp."""
-    os_ = golden_spec_uds.output_structure
-    assert os_ is not None
-    assert os_.pipeline_timestamp == "_pdm_last_update_timestamp", (
-        "Expected pipeline_timestamp to be '_pdm_last_update_timestamp'"
-    )
+def test_uds_data_requisite_has_time_columns(golden_spec_uds):
+    """underwriting_decision_support must have at least one time-role column in its
+    DataRequisite — business time columns exist even though the pipeline watermark
+    (_pdm_last_update_timestamp) is correctly excluded."""
+    dr = golden_spec_uds.data_requisite
+    assert dr is not None
+    time_cols = [c for c in dr.columns if c.role == "time"]
+    assert time_cols, "Expected at least one time-role column in UDS DataRequisite"
 
-
-# ------------------------------------------------------------------ #
-# FIX 2: primary_source_asset preference ranking                      #
-# ------------------------------------------------------------------ #
 
 def test_product_line_primary_source_not_rating_asset(
     golden_bundle, golden_graph_store, golden_primitives, golden_opps
 ):
-    """product_line_performance_dashboard must not pick a _rating or _factor asset."""
+    """product_line_performance_dashboard must not pick a deprioritised asset
+    (one whose name contains _rating, _factor, _load, _war_, _ops_, _inputs, or _modifiers)."""
     assembler = SpecAssembler()
     opp_by_id = {o.initiative_id: o for o in golden_opps}
     opp = opp_by_id.get("product_line_performance_dashboard")
     if opp is None:
         pytest.skip("product_line_performance_dashboard not found")
     spec = assembler.assemble(
-        opp=opp,
-        primitives=golden_primitives,
-        bundle=golden_bundle,
-        graph_store=golden_graph_store,
-        graph_build_id="test_build",
+        opp=opp, primitives=golden_primitives, bundle=golden_bundle,
+        graph_store=golden_graph_store, graph_build_id="test_build",
     )
-    os_ = spec.output_structure
-    assert os_ is not None
-    bad = {"hx_general_aviation_war_rating", "hx_contingency_layers"}
-    assert os_.primary_source_asset not in bad, (
-        f"primary_source_asset is {os_.primary_source_asset!r} — should not be a rating/peripheral asset"
-    )
+    dr = spec.data_requisite
+    assert dr is not None
+    primary = dr.primary_source_asset or ""
+    deprioritised = ("_rating", "_factor", "_load", "_war_", "_ops_", "_inputs", "_modifiers")
+    for pattern in deprioritised:
+        assert pattern not in primary, (
+            f"primary_source_asset {primary!r} contains deprioritised pattern {pattern!r}"
+        )
 
 
 # ------------------------------------------------------------------ #

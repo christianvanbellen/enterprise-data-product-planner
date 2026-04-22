@@ -299,7 +299,6 @@ enterprise-data-product-planner/
 ├── ontology/               # YAML controlled vocabularies
 │   ├── initiative_research.yaml    # 19 initiatives with research citations
 │   ├── insurance_entities.yaml     # 10 entity definitions
-│   ├── insurance_domains.yaml      # 6 business domains
 │   ├── gap_types.yaml              # 9 gap type definitions
 │   ├── relationship_types.yaml     # All edge types by layer
 │   └── tag_mappings.yaml           # Product line and lineage layer tags

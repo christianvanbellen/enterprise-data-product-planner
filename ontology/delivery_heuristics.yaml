@@ -1,0 +1,42 @@
+# delivery_heuristics.yaml — archetype → delivery profile (Phase 5, pre-rendered)
+# Read by: SpecRenderer at module load.
+# Effect: drives the Delivery subsection of the WHEN block in rendered specs.
+#         Not LLM-generated — these are deterministic heuristic defaults per archetype.
+#         Edit here + --force-render to update all specs with that archetype.
+
+delivery:
+
+  monitoring:
+    refresh: "Daily or weekly"
+    sla:     "T+1 from upstream mart refresh"
+    format:  "BI / Streamlit dashboard"
+
+  decision_support:
+    refresh: "On-demand"
+    sla:     "Real-time or near-real-time"
+    format:  "Internal API or embedded tool"
+
+  prediction:
+    refresh: "Weekly or monthly"
+    sla:     "Batch scoring run"
+    format:  "Scored table or API"
+
+  copilot:
+    refresh: "Real-time"
+    sla:     "Live query on latest data"
+    format:  "LLM-backed agent"
+
+  automation:
+    refresh: "Real-time"
+    sla:     "Event-triggered"
+    format:  "Agentic workflow"
+
+  prioritization:
+    refresh: "Daily or weekly"
+    sla:     "T+1 from mart refresh"
+    format:  "Ranked list / dashboard"
+
+  recommendation:
+    refresh: "Daily"
+    sla:     "T+1 from mart refresh"
+    format:  "Scored recommendation table"

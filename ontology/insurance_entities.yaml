@@ -1,14 +1,9 @@
-available_entities:
-  - policyholder
-  - broker
-  - line_of_business
-  - claim
-  - coverage
-  - policy
-  - pricing_component
-  - profitability_component
-  - exposure
-  - underwriter
+# insurance_entities.yaml — registry of recognised semantic entity labels
+# Read by: OntologyLoader.allowed_entities() (Phase 3) as a validation whitelist.
+# Effect: Labels here become valid BusinessEntityNode types in the semantic graph.
+#         Adding a label here is necessary but not sufficient — you must also add it to
+#         ENTITY_GROUPS in graph/semantic/conformed_binder.py and to the conformed schema
+#         JSON for asset binding to occur. See docs/inputs.md — ENTITY_GROUPS section.
 
 entities:
   - policyholder

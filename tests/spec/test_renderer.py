@@ -80,7 +80,7 @@ def test_render_uses_correct_model():
     assert call_kwargs["model"] == _MODEL
 
 
-def test_full_spec_uses_2500_max_tokens():
+def test_full_spec_uses_1200_max_tokens():
     spec = _make_spec(spec_type="full_spec")
     mock_mod, mock_client = _make_anthropic_mock("Rendered")
 
@@ -89,10 +89,10 @@ def test_full_spec_uses_2500_max_tokens():
             SpecRenderer().render(spec)
 
     call_kwargs = mock_client.messages.create.call_args[1]
-    assert call_kwargs["max_tokens"] == 2500
+    assert call_kwargs["max_tokens"] == 1600
 
 
-def test_gap_brief_uses_800_max_tokens():
+def test_gap_brief_uses_600_max_tokens():
     spec = _make_spec(spec_type="gap_brief")
     mock_mod, mock_client = _make_anthropic_mock("Rendered")
 
@@ -101,7 +101,7 @@ def test_gap_brief_uses_800_max_tokens():
             SpecRenderer().render(spec)
 
     call_kwargs = mock_client.messages.create.call_args[1]
-    assert call_kwargs["max_tokens"] == 800
+    assert call_kwargs["max_tokens"] == 600
 
 
 # ------------------------------------------------------------------ #

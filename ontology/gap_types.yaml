@@ -1,3 +1,11 @@
+# gap_types.yaml — controlled vocabulary for gap_type values (REFERENCE ONLY)
+# NOT loaded at runtime. No pipeline code reads this file.
+# Purpose: documents the valid gap_type strings used in initiative_research.yaml data_gaps
+#          entries and in GapNode objects in the opportunity graph.
+# Adding a new gap_type here does not register it with the pipeline — the pipeline uses
+# gap_type strings directly. This file exists to keep the vocabulary documented.
+# See: docs/inputs.md — gap_types.yaml section.
+
 gap_types:
   - missing_history
   - weak_identifier

@@ -1,0 +1,40 @@
+# domain_keywords.yaml — keyword → business domain assignment (Phase 1)
+# Read by: DbtMetadataAdapter at module load.
+# Effect: each dbt model's name, description, tags, and column names are scanned against
+#         these keyword lists. Matching domains are added to asset.domain_candidates, which
+#         drives BELONGS_TO_DOMAIN edges in Phase 3 and domain colour coding in the graph explorer.
+# Known gap: distribution domain is under-captured. Candidate additions:
+#   coverholder, mga, binder, lineslip, delegated, facility_fee
+#   — review context before adding (e.g. "facility" may mean Lloyd's facility or a building).
+#   See docs/phase3_design_brief.md — Distribution domain gap section.
+
+pricing:
+  - premium
+  - rate
+  - pricing
+  - elr
+  - commission
+  - rarc
+
+profitability:
+  - profitability
+  - sold_to
+  - modtech
+  - tech_gnwp
+
+underwriting:
+  - underwriter
+  - quote
+  - coverage
+  - policyholder
+
+distribution:
+  - broker
+  - channel
+  - branch
+
+portfolio_monitoring:
+  - inflation
+  - change
+  - monitoring
+  - expiring

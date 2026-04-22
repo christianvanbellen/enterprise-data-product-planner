@@ -1,0 +1,20 @@
+# semantic_map.yaml — column name/description substring → semantic candidate label (Phase 1)
+# Read by: DbtMetadataAdapter at module load.
+# Effect: matched labels are stored on CanonicalColumn.semantic_candidates and used in Phase 5
+#         as a positive-inclusion signal for column selection in specs — alongside column
+#         descriptions and membership in a primitive's matched_columns set.
+#         Adding an entry here makes undescribed columns with that substring eligible for
+#         inclusion in specs without needing a dbt column description.
+
+quote_id: quote
+layer_id: coverage_layer
+coverage_id: coverage
+policyholder_name: policyholder
+broker_primary: broker
+underwriter: underwriter
+jurisdiction: jurisdiction
+premium: premium
+exposure: exposure
+commission: commission
+elr: expected_loss_ratio
+rarc: risk_adjusted_rate_change

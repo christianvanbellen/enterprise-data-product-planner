@@ -1,0 +1,16 @@
+# grain_keys.yaml — column names recognised as grain keys during ingestion (Phase 1)
+# Read by: DbtMetadataAdapter at module load.
+# Effect: an asset's grain_keys list is built by matching its column names (exact,
+#         case-insensitive) against this set. grain_keys feeds:
+#           - _infer_table_type(): bridge detection (>=4 grain keys → bridge table)
+#           - DataRequisite: identifier column selection and grain description
+#           - JoinAssessment: grain match computation and aggregation_needed flag
+# Add warehouse-specific identifier column names here if they are not yet recognised.
+
+candidates:
+  - quote_id
+  - layer_id
+  - coverage_id
+  - policy_id
+  - pas_id
+  - customer_id

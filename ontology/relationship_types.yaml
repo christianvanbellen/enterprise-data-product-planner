@@ -1,3 +1,11 @@
+# relationship_types.yaml — edge type vocabulary by graph layer (REFERENCE ONLY)
+# NOT loaded at runtime. No pipeline code reads this file.
+# Purpose: documents the valid edge_type values written to output/graph/edges.json
+#          by each pipeline phase. Structural edges are Phase 2, semantic edges are
+#          Phase 3, opportunity edges are Phase 4.
+# See: docs/evidence_model.md for the full rule_id reference per edge type.
+#      docs/phase2_graph_schema.md for structural edge counts and properties.
+
 structural:
   - CONTAINS
   - HAS_COLUMN

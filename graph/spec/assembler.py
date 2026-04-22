@@ -52,6 +52,14 @@ class PrimitiveDetail(BaseModel):
     supporting_assets: List[AssetDetail] = Field(default_factory=list)
 
 
+class PrimitiveSummary(BaseModel):
+    """Slim primitive record exposed in SpecDocument (no asset detail)."""
+    primitive_id: str
+    primitive_name: str
+    description: str
+    maturity_score: float
+
+
 class BlockerDetail(BaseModel):
     gap_type: str
     description: str
@@ -138,6 +146,15 @@ class DataRequisite(BaseModel):
     join_assessments: List["JoinAssessment"] = Field(default_factory=list)
 
 
+class AssetQualitySignal(BaseModel):
+    """Test and description coverage for one source asset."""
+    asset_name: str
+    column_count: int
+    tested_count: int
+    described_count: int
+    test_coverage_pct: int   # 0–100
+
+
 class SpecDocument(BaseModel):
     spec_id: str
     spec_type: str          # "full_spec" | "gap_brief"
@@ -152,19 +169,19 @@ class SpecDocument(BaseModel):
     output_type: str
     target_users: List[str] = Field(default_factory=list)
     composes_with: List[str] = Field(default_factory=list)
-    available_primitives: List[PrimitiveDetail] = Field(default_factory=list)
+    # Slim primitive list — id, name, maturity_score only
+    available_primitives: List[PrimitiveSummary] = Field(default_factory=list)
     missing_primitives: List[Any] = Field(default_factory=list)
     blockers: List[BlockerDetail] = Field(default_factory=list)
-    grain_join_paths: List[JoinPath] = Field(default_factory=list)
-    # ── CHANGE 1: primitive-to-asset mapping and bill of materials ────────
-    primitive_to_assets: Dict[str, List[str]] = Field(default_factory=dict)
-    all_supporting_asset_names: List[str] = Field(default_factory=list)
-    # ── feasibility rationale (from YAML research artifact) ──────────────
+    # Feasibility rationale from YAML research artifact
     feasibility_rationale: Optional[str] = None
-    # ── output data structure (pre-computed by _build_output_structure) ──
-    output_structure: Optional[OutputStructure] = None
-    # ── data requisite (pre-computed by _build_data_requisite) ───────────
+    # Literature grounding from initiative_research.yaml
+    literature_quote: Optional[str] = None
+    literature_source_ids: List[str] = Field(default_factory=list)
+    # Data requisite — the build contract (full_spec only)
     data_requisite: Optional[DataRequisite] = None
+    # Data quality signals for source assets (test + description coverage)
+    data_quality_signals: List[AssetQualitySignal] = Field(default_factory=list)
     graph_build_id: str
     assembled_at_utc: str
 
@@ -227,7 +244,7 @@ class SpecAssembler:
                 ordered_ids.append(aid)
         top5_ids = set(ordered_ids[:5])
 
-        # ── Build PrimitiveDetail list ─────────────────────────────────────
+        # ── Build PrimitiveDetail list (internal — not in SpecDocument) ──────
         available_prim_details: List[PrimitiveDetail] = []
         for pid in opp.available_primitives:
             p = prim_by_id.get(pid)
@@ -247,15 +264,22 @@ class SpecAssembler:
                 supporting_assets=asset_details,
             ))
 
-        # ── CHANGE 1: primitive_to_assets and all_supporting_asset_names ───
-        primitive_to_assets: Dict[str, List[str]] = {}
-        for pd in available_prim_details:
-            primitive_to_assets[pd.primitive_id] = [a.name for a in pd.supporting_assets]
+        # ── Slim PrimitiveSummary list for SpecDocument ────────────────────
+        available_prim_summaries: List[PrimitiveSummary] = [
+            PrimitiveSummary(
+                primitive_id=pd.primitive_id,
+                primitive_name=pd.primitive_name,
+                description=pd.description,
+                maturity_score=pd.maturity_score,
+            )
+            for pd in available_prim_details
+        ]
 
+        # ── All supporting asset names (internal — used for data requisite) ─
         all_supporting_asset_names: List[str] = sorted(set(
-            name
-            for names in primitive_to_assets.values()
-            for name in names
+            a.name
+            for pd in available_prim_details
+            for a in pd.supporting_assets
         ))
 
         # ── Build BlockerDetail list ───────────────────────────────────────
@@ -277,18 +301,19 @@ class SpecAssembler:
                         source="primitive_maturity",
                     ))
 
-        # ── Grain join paths ───────────────────────────────────────────────
-        grain_join_paths = _compute_grain_join_paths(all_supporting_ids, asset_map)
-
         # ── spec_type ──────────────────────────────────────────────────────
         spec_type = (
             "full_spec" if opp.readiness in _FULL_SPEC_READINESS else "gap_brief"
         )
 
-        # ── feasibility_rationale from archetype def ───────────────────────
+        # ── feasibility_rationale and literature fields from archetype def ──
         feasibility_rationale: Optional[str] = None
+        literature_quote: Optional[str] = None
+        literature_source_ids: List[str] = []
         if archetype_def:
             feasibility_rationale = archetype_def.get("feasibility_rationale")
+            literature_quote = archetype_def.get("literature_quote")
+            literature_source_ids = list(archetype_def.get("literature_sources", []))
 
         # ── output data structure ─────────────────────────────────────────
         output_structure = self._build_output_structure(
@@ -323,6 +348,26 @@ class SpecAssembler:
             bundle_cols_by_id=cols_by_asset,
         )
 
+        # ── Data quality signals from bundle for each source asset ────────
+        bundle_asset_by_name: Dict[str, Any] = {a.name: a for a in bundle.assets}
+        data_quality_signals: List[AssetQualitySignal] = []
+        if data_requisite:
+            for src_name in data_requisite.minimal_source_assets:
+                ba = bundle_asset_by_name.get(src_name)
+                if ba:
+                    ba_cols = cols_by_asset.get(ba.internal_id, [])
+                    if ba_cols:
+                        n = len(ba_cols)
+                        tested    = sum(1 for c in ba_cols if c.tests)
+                        described = sum(1 for c in ba_cols if c.description)
+                        data_quality_signals.append(AssetQualitySignal(
+                            asset_name=src_name,
+                            column_count=n,
+                            tested_count=tested,
+                            described_count=described,
+                            test_coverage_pct=round(tested / n * 100) if n else 0,
+                        ))
+
         spec_id = stable_hash(opp.initiative_id, graph_build_id)
 
         return SpecDocument(
@@ -339,15 +384,14 @@ class SpecAssembler:
             output_type=opp.output_type,
             target_users=list(opp.target_users),
             composes_with=list(opp.composes_with),
-            available_primitives=available_prim_details,
+            available_primitives=available_prim_summaries,
             missing_primitives=list(opp.missing_primitives),
             blockers=blockers,
-            grain_join_paths=grain_join_paths,
-            primitive_to_assets=primitive_to_assets,
-            all_supporting_asset_names=all_supporting_asset_names,
             feasibility_rationale=feasibility_rationale,
-            output_structure=output_structure,
+            literature_quote=literature_quote,
+            literature_source_ids=literature_source_ids,
             data_requisite=data_requisite,
+            data_quality_signals=data_quality_signals,
             graph_build_id=graph_build_id,
             assembled_at_utc=utc_now_iso(),
         )
@@ -825,8 +869,33 @@ class SpecAssembler:
                 join_key=join_key if derivation == "join" else None,
             ))
 
+        # Override roles for prediction / decision_support archetypes.
+        # feature_columns and target_variable are computed inside output_structure;
+        # we apply them as role overrides before finalising dr_columns.
+        if os_ is not None:
+            feature_names: set[str] = set()
+            if os_.feature_columns:
+                feature_names = {c.name for c in os_.feature_columns}
+            target_name: Optional[str] = None
+            if os_.target_variable and os_.target_variable.available and os_.target_variable.column_name:
+                target_name = os_.target_variable.column_name
+
+        def _apply_ml_roles(cols: List[DataRequisiteColumn]) -> List[DataRequisiteColumn]:
+            if os_ is None:
+                return cols
+            result = []
+            for c in cols:
+                if target_name and c.column_name == target_name and c.role == "measure":
+                    result.append(c.model_copy(update={"role": "target"}))
+                elif feature_names and c.column_name in feature_names and c.role == "measure":
+                    result.append(c.model_copy(update={"role": "feature"}))
+                else:
+                    result.append(c)
+            return result
+
         # Assemble: identifiers first, then join dims, then output_structure columns
         dr_columns = id_columns + join_dim_columns + os_columns
+        dr_columns = _apply_ml_roles(dr_columns)
 
         # FIX A: set table_type from inferred type of primary source asset
         table_type = _atype.get(primary, "unknown")

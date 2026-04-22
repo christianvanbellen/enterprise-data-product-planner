@@ -5,6 +5,27 @@ Open items, known limitations, and deferred work. Items are grouped by phase and
 
 ---
 
+## Python configuration constants migrated to YAML [DONE — April 2026]
+
+Six editorial configuration constants previously hardcoded in Python have been migrated
+to ontology YAML files, making them editable without touching code:
+
+- `ENTITY_GROUPS` + `OVERLAP_THRESHOLD` → `ontology/entity_groups.yaml`
+- `DOMAIN_KEYWORDS` → `ontology/domain_keywords.yaml`
+- `SEMANTIC_MAP` → `ontology/semantic_map.yaml`
+- `GRAIN_KEY_CANDIDATES` → `ontology/grain_keys.yaml`
+- `PRIMITIVE_DEFINITIONS` → `ontology/primitives.yaml`
+- `_DELIVERY` → `ontology/delivery_heuristics.yaml`
+- `_INITIATIVE_SCORES` merged into `ontology/initiative_research.yaml` (collapsed
+  two-file split into one complete initiative definition per entry)
+
+Only `_SYSTEM_PROMPT` in `renderer.py` remains in Python — it contains sentinel logic
+and prompt structure tightly coupled to the renderer code.
+
+See `docs/inputs.md` for the complete configuration reference.
+
+---
+
 ## SpecLog deduplication bug [FIXED — April 2026]
 
 `index.json` was appending a new entry on every run regardless of whether the initiative

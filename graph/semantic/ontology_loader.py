@@ -108,7 +108,3 @@ class SynonymRegistry:
     @classmethod
     def allowed_entities(cls) -> List[str]:
         return _load_yaml("insurance_entities.yaml").get("entities", [])
-
-    @classmethod
-    def allowed_domains(cls) -> List[str]:
-        return _load_yaml("insurance_domains.yaml").get("domains", [])

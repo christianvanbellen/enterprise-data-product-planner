@@ -83,6 +83,20 @@ def main(
 
     console.print(f"  initiatives: {len(initiative_ids)} selected\n")
 
+    # ── Progress callback ──────────────────────────────────────────────────
+    _STATUS_STYLE = {"rendered": "green", "cached": "dim", "assembled": "yellow", "error": "red"}
+    _STATUS_ICON  = {"rendered": "+", "cached": "~", "assembled": "-", "error": "!"}
+
+    def _on_progress(idx: int, total: int, init_id: str, readiness: str, status: str) -> None:
+        rs   = _READINESS_STYLE.get(readiness, "")
+        ss   = _STATUS_STYLE.get(status, "")
+        icon = _STATUS_ICON.get(status, "?")
+        pad  = len(str(total))
+        # Only wrap in markup when style is non-empty — empty tags crash Rich
+        id_part = f"[{rs}]{init_id:<45}[/{rs}]" if rs else f"{init_id:<45}"
+        st_part = f"[{ss}]{icon} {status}[/{ss}]" if ss else f"{icon} {status}"
+        console.print(f"  [{idx:>{pad}}/{total}] {id_part} {st_part}")
+
     # ── Run pipeline ───────────────────────────────────────────────────────
     pipeline = SpecGenerationPipeline()
     report = pipeline.run(
@@ -95,6 +109,7 @@ def main(
         render=render,
         force_render=force_render,
         archetype_lib=library,
+        on_progress=_on_progress,
     )
 
     # ── Summary table ──────────────────────────────────────────────────────
