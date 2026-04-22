@@ -5,6 +5,35 @@ Open items, known limitations, and deferred work. Items are grouped by phase and
 
 ---
 
+## Lineage-layer tag loss [FIXED — April 2026]
+
+Previously `CanonicalAsset.lineage_layer` was `Optional[str]` populated by first-match over
+the `tag_to_lineage_layer` mapping. On the Liberty warehouse 205/207 assets carry two
+layer-relevant tags (typically a pipeline-stage tag like `hx`/`ll`/`gen2` paired with a
+conformance-grade tag like `bookends`/`semi_conformed`), so the first-match rule was
+silently discarding the secondary signal on 99% of assets.
+
+Fixed by replacing the field with `lineage_layers: List[str]` containing every tag that
+maps to a known layer, in tag order, deduplicated. `_infer_table_type()` Signal 1 now scans
+the whole list against its `_LAYER_TO_TYPE` mapping rather than only the first entry.
+
+Impact on graph coverage:
+- 5 distinct lineage layers present before → 7 distinct layers present after
+- Previously-lost signals now captured: `semi_conformed_mart` (136 assets), `source_table`
+  (41 assets), `conformed_bookends` (25 assets)
+
+Impact on analytical output:
+- 40 assets previously classified by composition signal now classify as `source`/`snapshot`
+  via Signal 1. Specifically the 39 `(ll, source)` pairs and 1 `(ll, raw)` pair.
+- This feeds through to `DataRequisite.table_type` and `JoinAssessment.join_direction`
+  for those assets.
+
+Not yet built on top of this: per-layer trust weighting in Phase 3 binding, conformance-
+based primary source selection in Phase 5, or a Phase 6 "conformance debt" report. Those
+become possible now that the signal is preserved.
+
+---
+
 ## Schema nodes materialized [FIXED — April 2026]
 
 Previously `CONTAINS` edge source IDs (`schema_*`) were documented as "virtual" — they

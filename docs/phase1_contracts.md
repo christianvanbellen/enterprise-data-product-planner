@@ -65,7 +65,7 @@ Represents a single data asset: a dbt model, source table, or view.
 | `domain_candidates` | `List[str]` | Inferred domain labels from keyword scan |
 | `grain_keys` | `List[str]` | Columns identified as grain keys (identifiers) |
 | `is_enabled` | `bool` | Whether the dbt model is enabled |
-| `lineage_layer` | `Optional[str]` | Inferred layer tag: `raw`, `source`, `liberty_link`, etc. |
+| `lineage_layers` | `List[str]` | All inferred layer tags from the model's dbt tags, in tag order, deduplicated. Example: `["historic_exchange", "conformed_bookends"]`. Empty list when no tags match the registry. |
 | `product_lines` | `List[str]` | Inferred product line tags: `eupi`, `d_o`, `general_aviation`, etc. |
 | `upstream_dependents` | `int` | Count of DEPENDS_ON edges pointing to this asset (populated in Phase 2) |
 | `version_hash` | `str` | Stable hash of the source entity JSON |

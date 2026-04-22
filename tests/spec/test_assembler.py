@@ -853,7 +853,7 @@ def test_data_requisite_uds_has_identifiers(golden_spec_uds):
 # _infer_table_type tests                                              #
 # ------------------------------------------------------------------ #
 
-def _make_infer_asset(grain_keys=None, lineage_layer=None):
+def _make_infer_asset(grain_keys=None, lineage_layers=None):
     """Minimal CanonicalAsset for _infer_table_type tests."""
     from ingestion.contracts.asset import CanonicalAsset, Provenance
     prov = Provenance(source_system="test", source_type="test")
@@ -863,7 +863,7 @@ def _make_infer_asset(grain_keys=None, lineage_layer=None):
         name="test_asset",
         normalized_name="test_asset",
         grain_keys=grain_keys or [],
-        lineage_layer=lineage_layer,
+        lineage_layers=list(lineage_layers) if lineage_layers else [],
         version_hash="abc",
         provenance=prov,
     )
@@ -899,19 +899,32 @@ def _make_infer_columns(n_fact=0, n_dim=0, n_id=0):
 
 
 def test_infer_table_type_snapshot_from_lineage():
-    """Assets with lineage_layer == 'historic_exchange' must return 'snapshot'."""
+    """Assets with 'historic_exchange' in lineage_layers must return 'snapshot'."""
     assembler = SpecAssembler()
     store = _make_graph_store()
-    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layer="historic_exchange")
+    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layers=["historic_exchange"])
     cols = _make_infer_columns(n_fact=8, n_dim=1, n_id=1)
     assert assembler._infer_table_type(asset, cols, store) == "snapshot"
 
 
 def test_infer_table_type_source_from_lineage():
-    """Assets with lineage_layer == 'source_table' must return 'source'."""
+    """Assets with 'source_table' in lineage_layers must return 'source'."""
     assembler = SpecAssembler()
     store = _make_graph_store()
-    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layer="source_table")
+    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layers=["source_table"])
+    cols = _make_infer_columns(n_fact=5, n_dim=5, n_id=1)
+    assert assembler._infer_table_type(asset, cols, store) == "source"
+
+
+def test_infer_table_type_secondary_layer_tag_matches():
+    """Signal 1 must scan all layer tags — a secondary 'source_table' tag classifies
+    as 'source' even when the primary tag (liberty_link) doesn't match _LAYER_TO_TYPE."""
+    assembler = SpecAssembler()
+    store = _make_graph_store()
+    asset = _make_infer_asset(
+        grain_keys=["quote_id"],
+        lineage_layers=["liberty_link", "source_table"],
+    )
     cols = _make_infer_columns(n_fact=5, n_dim=5, n_id=1)
     assert assembler._infer_table_type(asset, cols, store) == "source"
 
@@ -922,7 +935,7 @@ def test_infer_table_type_bridge_from_grain_count():
     store = _make_graph_store()
     asset = _make_infer_asset(
         grain_keys=["coverage_id", "layer_id", "quote_id", "pas_id"],
-        lineage_layer="liberty_link",
+        lineage_layers=["liberty_link"],
     )
     cols = _make_infer_columns(n_fact=4, n_dim=10, n_id=4)
     assert assembler._infer_table_type(asset, cols, store) == "bridge"
@@ -932,7 +945,7 @@ def test_infer_table_type_fact_from_composition():
     """Assets with predominantly numeric columns must return 'fact'."""
     assembler = SpecAssembler()
     store = _make_graph_store()
-    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layer=None)
+    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layers=[])
     cols = _make_infer_columns(n_fact=18, n_dim=2, n_id=1)   # 86% fact
     assert assembler._infer_table_type(asset, cols, store) == "fact"
 
@@ -941,7 +954,7 @@ def test_infer_table_type_dimension_from_composition():
     """Assets with predominantly categorical columns must return 'dimension'."""
     assembler = SpecAssembler()
     store = _make_graph_store()
-    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layer=None)
+    asset = _make_infer_asset(grain_keys=["quote_id"], lineage_layers=[])
     cols = _make_infer_columns(n_fact=0, n_dim=8, n_id=1)   # 89% dim
     assert assembler._infer_table_type(asset, cols, store) == "dimension"
 
@@ -1030,11 +1043,11 @@ def _make_fact_dim_setup():
     assets = [
         CanonicalAsset(internal_id="fact_001", asset_type="dbt_model",
                        name="fact_measures", normalized_name="fact_measures",
-                       grain_keys=["quote_id"], lineage_layer="gen2_mart",
+                       grain_keys=["quote_id"], lineage_layers=["gen2_mart"],
                        version_hash="a", provenance=prov),
         CanonicalAsset(internal_id="dim_001", asset_type="dbt_model",
                        name="dim_setup", normalized_name="dim_setup",
-                       grain_keys=["quote_id"], lineage_layer="liberty_link",
+                       grain_keys=["quote_id"], lineage_layers=["liberty_link"],
                        version_hash="a", provenance=prov),
     ]
     columns = [

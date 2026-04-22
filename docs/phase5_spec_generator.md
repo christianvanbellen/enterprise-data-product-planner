@@ -315,8 +315,8 @@ Safety classification rules:
 in `ARCHITECTURE.md`. Brief summary of the four signals:
 
 1. **Grain key count ≥ 4** → bridge (checked first, definitive)
-2. **`lineage_layer`** → source_table/raw_layer → source; historic_exchange → snapshot (definitive for those layers)
-3. **gen2_mart + dim_ratio < 0.6** → override composition signal to fact (mart refinement)
+2. **`lineage_layers` scan** → if any layer is source_table/raw_layer → source; historic_exchange → snapshot. All layer tags are consulted, not just the first (e.g. a `(liberty_link, source_table)` pair classifies as `source`).
+3. **`"gen2_mart" in lineage_layers` + dim_ratio < 0.6** → override composition signal to fact (mart refinement)
 4. **Column composition** → fact_ratio > 0.55 → fact; dim_ratio > 0.45 → dimension
 
 Returns `unknown` if the asset has zero columns or zero grain keys.

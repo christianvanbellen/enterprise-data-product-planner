@@ -1,6 +1,9 @@
 # tag_mappings.yaml — dbt tag → pipeline classification
 # Read by: DbtMetadataAdapter at module load (Phase 1)
-# Effect: tag_to_lineage_layer drives _infer_table_type() dimensional role inference in Phase 5.
+# Effect: tag_to_lineage_layer populates CanonicalAsset.lineage_layers (a list, not a single
+#         value — every matching tag contributes, in tag order, deduplicated). That list then
+#         drives _infer_table_type() dimensional role inference in Phase 5 — Signal 1 scans
+#         all layers against _LAYER_TO_TYPE rather than only the first match.
 #         tag_to_product_line drives product_line_segmentation primitive matching in Phase 4.
 # See: docs/inputs.md — tag_mappings.yaml section
 

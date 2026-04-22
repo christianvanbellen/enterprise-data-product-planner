@@ -30,7 +30,7 @@ class GraphNode:
             "grain_keys": asset.grain_keys,
             "domain_candidates": asset.domain_candidates,
             "product_lines": asset.product_lines,
-            "lineage_layer": asset.lineage_layer,
+            "lineage_layers": asset.lineage_layers,
             "is_enabled": asset.is_enabled,
             "version_hash": asset.version_hash,
         }

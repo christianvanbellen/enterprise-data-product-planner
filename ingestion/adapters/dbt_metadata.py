@@ -80,12 +80,21 @@ def _infer_product_lines(tags: List[str]) -> List[str]:
     return seen
 
 
-def _infer_lineage_layer(tags: List[str]) -> Optional[str]:
+def _infer_lineage_layers(tags: List[str]) -> List[str]:
+    """Return all lineage-layer values the tag list maps to, in tag order, deduplicated.
+
+    Previously this returned only the first matching layer (first-match), discarding any
+    secondary layer signal. Every tag in the mapping is now preserved — e.g. an asset
+    tagged ['hx', 'bookends'] yields ['historic_exchange', 'conformed_bookends'].
+    """
+    seen: set = set()
+    result: List[str] = []
     for tag in tags:
         layer = _TAG_TO_LINEAGE_LAYER.get(tag)
-        if layer:
-            return layer
-    return None
+        if layer and layer not in seen:
+            seen.add(layer)
+            result.append(layer)
+    return result
 
 
 def _infer_semantic_candidates(col_name: str, description: Optional[str]) -> List[str]:
@@ -287,7 +296,7 @@ class DbtMetadataAdapter(BaseAdapter):
         domain_candidates = _infer_domains(name, description, tags, column_names)
         grain_keys = _infer_grain_keys(column_names)
         product_lines = _infer_product_lines(tags)
-        lineage_layer = _infer_lineage_layer(tags)
+        lineage_layers = _infer_lineage_layers(tags)
 
         provenance = self._provenance(SOURCE_SYSTEM, SOURCE_TYPE, unique_id, entity)
 
@@ -320,7 +329,7 @@ class DbtMetadataAdapter(BaseAdapter):
             grain_keys=grain_keys,
             domain_candidates=domain_candidates,
             product_lines=product_lines,
-            lineage_layer=lineage_layer,
+            lineage_layers=lineage_layers,
             is_enabled=entity.get("config", {}).get("enabled", True),
             version_hash=version_hash,
             provenance=provenance,

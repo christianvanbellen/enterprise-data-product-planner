@@ -328,32 +328,46 @@ def test_product_lines_no_match(tmp_path):
     assert bundle.assets[0].product_lines == []
 
 
-def test_lineage_layer_hx_tag(tmp_path):
-    """Tag 'HX' must map to lineage_layer 'historic_exchange'."""
+def test_lineage_layers_hx_tag(tmp_path):
+    """Tag 'HX' must map to lineage_layers ['historic_exchange']."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX"]))
-    assert bundle.assets[0].lineage_layer == "historic_exchange"
+    assert bundle.assets[0].lineage_layers == ["historic_exchange"]
 
 
-def test_lineage_layer_ll_tag(tmp_path):
-    """Tag 'LL' must map to lineage_layer 'liberty_link'."""
+def test_lineage_layers_ll_tag(tmp_path):
+    """Tag 'LL' must map to lineage_layers ['liberty_link']."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["LL"]))
-    assert bundle.assets[0].lineage_layer == "liberty_link"
+    assert bundle.assets[0].lineage_layers == ["liberty_link"]
 
 
-def test_lineage_layer_no_match(tmp_path):
-    """Tags with no layer mapping must produce lineage_layer=None."""
+def test_lineage_layers_no_match(tmp_path):
+    """Tags with no layer mapping must produce empty lineage_layers."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["eupi"]))
-    assert bundle.assets[0].lineage_layer is None
+    assert bundle.assets[0].lineage_layers == []
 
 
-def test_lineage_layer_first_match_wins(tmp_path):
-    """When multiple layer tags are present, the first matching one wins."""
+def test_lineage_layers_preserves_order(tmp_path):
+    """When multiple layer tags are present, all are recorded in tag order."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "LL"]))
-    assert bundle.assets[0].lineage_layer == "historic_exchange"
+    assert bundle.assets[0].lineage_layers == ["historic_exchange", "liberty_link"]
+
+
+def test_lineage_layers_preserves_conformance_tags(tmp_path):
+    """Secondary tags like 'bookends' and 'semi_conformed' are no longer lost."""
+    adapter = DbtMetadataAdapter()
+    bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "bookends"]))
+    assert bundle.assets[0].lineage_layers == ["historic_exchange", "conformed_bookends"]
+
+
+def test_lineage_layers_deduplicates(tmp_path):
+    """Duplicate tags producing the same layer must be deduplicated."""
+    adapter = DbtMetadataAdapter()
+    bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "hx"]))
+    assert bundle.assets[0].lineage_layers == ["historic_exchange"]
 
 
 def test_golden_product_lines_non_empty(golden_bundle):
@@ -362,10 +376,10 @@ def test_golden_product_lines_non_empty(golden_bundle):
     assert assets_with_pl, "Expected at least one asset with product_lines from golden data"
 
 
-def test_golden_lineage_layer_non_empty(golden_bundle):
-    """At least some golden assets must have lineage_layer populated."""
-    assets_with_ll = [a for a in golden_bundle.assets if a.lineage_layer]
-    assert assets_with_ll, "Expected at least one asset with lineage_layer from golden data"
+def test_golden_lineage_layers_non_empty(golden_bundle):
+    """At least some golden assets must have lineage_layers populated."""
+    assets_with_ll = [a for a in golden_bundle.assets if a.lineage_layers]
+    assert assets_with_ll, "Expected at least one asset with lineage_layers from golden data"
 
 
 def test_golden_product_lines_values_are_strings(golden_bundle):
@@ -377,10 +391,10 @@ def test_golden_product_lines_values_are_strings(golden_bundle):
             )
 
 
-def test_golden_lineage_layer_values_are_strings(golden_bundle):
-    """lineage_layer must be a non-empty string or None."""
+def test_golden_lineage_layers_values_are_strings(golden_bundle):
+    """Every lineage_layers entry must be a non-empty string."""
     for asset in golden_bundle.assets:
-        if asset.lineage_layer is not None:
-            assert isinstance(asset.lineage_layer, str) and asset.lineage_layer, (
-                f"Asset {asset.name!r} has empty lineage_layer string"
+        for layer in asset.lineage_layers:
+            assert isinstance(layer, str) and layer, (
+                f"Asset {asset.name!r} has invalid lineage_layers entry: {layer!r}"
             )

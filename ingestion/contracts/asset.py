@@ -36,7 +36,12 @@ class CanonicalAsset(BaseModel):
     grain_keys: List[str] = Field(default_factory=list)
     domain_candidates: List[str] = Field(default_factory=list)
     product_lines: List[str] = Field(default_factory=list)
-    lineage_layer: Optional[str] = None
+    # All lineage-layer values the asset's tags map to, in tag order, deduplicated.
+    # Example: an asset tagged ['hx', 'bookends'] yields ['historic_exchange', 'conformed_bookends'].
+    # Phase 5's _infer_table_type scans this list for any _LAYER_TO_TYPE match — so both
+    # pipeline-stage tags (hx/ll/gen2/raw/source) and conformance-grade tags (bookends/semi_conformed)
+    # contribute. See docs/inputs.md — tag_mappings.yaml section.
+    lineage_layers: List[str] = Field(default_factory=list)
     is_enabled: bool = True
     version_hash: str
     provenance: Provenance

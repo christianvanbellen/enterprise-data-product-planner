@@ -606,13 +606,17 @@ class SpecAssembler:
 
         Returns one of: "fact" | "dimension" | "bridge" | "snapshot" | "source" | "unknown"
         """
-        # Signal 1 — lineage layer direct mapping
+        # Signal 1 — lineage layer direct mapping (scans ALL layer tags, not just first)
         _LAYER_TO_TYPE: Dict[str, str] = {
             "source_table":      "source",
             "raw_layer":         "source",
             "historic_exchange": "snapshot",
         }
-        signal1 = _LAYER_TO_TYPE.get(asset.lineage_layer or "")  # None for gen2_mart / liberty_link / etc.
+        signal1: Optional[str] = None
+        for layer in asset.lineage_layers:
+            if layer in _LAYER_TO_TYPE:
+                signal1 = _LAYER_TO_TYPE[layer]
+                break
 
         # Signal 2 — column composition ratios
         total = len(asset_columns)
@@ -651,7 +655,7 @@ class SpecAssembler:
         # Signal 4 — lineage-layer refinement for mart layers
         # gen2_mart tables lean toward "fact"; override only when dim_ratio is not
         # strongly in the dimension direction (< 0.6).
-        if asset.lineage_layer == "gen2_mart":
+        if "gen2_mart" in asset.lineage_layers:
             if composition_signal == "dimension" and dim_ratio < 0.6:
                 composition_signal = "fact"
 

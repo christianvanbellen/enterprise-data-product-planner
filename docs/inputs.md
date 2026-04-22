@@ -79,14 +79,14 @@ affecting spec quality downstream.
 - Model names, file paths, materialisation types
 - Column names, raw data types, and column descriptions (from `schema.yml`)
 - dbt tests attached to columns
-- dbt model tags — used for `lineage_layer` and `product_lines` assignment via `tag_mappings.yaml`
+- dbt model tags — used for `lineage_layers` and `product_lines` assignment via `tag_mappings.yaml`
 - `depends_on.nodes` — the explicit upstream lineage graph (201 `DEPENDS_ON` edges)
 
 **Effect of changes:**
 - Adding column descriptions → more columns pass the positive-inclusion filter in Phase 5
   specs; reduces the undescribed-column warnings in the WHEN section
 - Adding dbt tests → raises test coverage %, reduces the ⚠ data quality warnings
-- Adding or changing model tags → changes `lineage_layer` and `product_lines` assignments,
+- Adding or changing model tags → changes `lineage_layers` and `product_lines` assignments,
   which affects dimensional role inference (`_infer_table_type`) in Phase 5
 - Adding new models → new `Asset` nodes; may add new primitive support if they match
   required entity groups and columns
@@ -141,11 +141,12 @@ the phase that reads them.
 
 **What it controls:** Two mappings applied to every dbt model's tag list during ingestion:
 
-`tag_to_lineage_layer` — maps a dbt tag to a `lineage_layer` string. One of the four
-signals used by `_infer_table_type()` in Phase 5 to classify assets as fact, dimension,
-snapshot, source, or bridge:
+`tag_to_lineage_layer` — maps each dbt tag to a lineage-layer string. Every matching tag
+is collected into the asset's `lineage_layers` list (in tag order, deduplicated), so an
+asset tagged `['hx', 'bookends']` yields `['historic_exchange', 'conformed_bookends']`.
+`_infer_table_type()` in Phase 5 scans the whole list against its `_LAYER_TO_TYPE` table.
 
-| Tag | lineage_layer | Table type inferred |
+| Tag | lineage_layer value | Table type inferred |
 |-----|--------------|---------------------|
 | `hx` | `historic_exchange` | snapshot |
 | `ll` | `liberty_link` | (composition-based) |
