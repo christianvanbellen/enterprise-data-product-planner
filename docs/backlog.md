@@ -5,6 +5,24 @@ Open items, known limitations, and deferred work. Items are grouped by phase and
 
 ---
 
+## Schema nodes materialized [FIXED — April 2026]
+
+Previously `CONTAINS` edge source IDs (`schema_*`) were documented as "virtual" — they
+appeared in `edges.json` but had no corresponding entries in `nodes.json`, leaving 207
+dangling edge references that no graph query could resolve.
+
+Fixed by emitting one `Schema` node per unique `(database, schema_name)` pair during
+Phase 2 compilation. The new `Schema` label carries `schema_id`, `name`, `database`, and
+`asset_count` properties. Total node count grew from 3,165 to 3,172 (7 new Schema nodes on
+the Liberty warehouse). `structural.schema_node` added as a new rule_id.
+
+Database nodes were deliberately **not** added — all 207 assets live in one database
+(`mart_lii_hx_rating_db`), so a Database node with a single `CONTAINS → Schema` fan-out
+would add visual noise without informational value. If the system later ingests from a
+multi-database warehouse, a Database node layer can be introduced with the same shape.
+
+---
+
 ## Python configuration constants migrated to YAML [DONE — April 2026]
 
 Six editorial configuration constants previously hardcoded in Python have been migrated

@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+from ingestion.contracts.asset import CanonicalAsset
 from ingestion.contracts.bundle import CanonicalBundle
 from ingestion.normalisation.hashing import stable_hash, utc_now_iso
 from graph.compiler.evidence import (
@@ -47,8 +48,8 @@ class StructuralGraphCompiler:
         # Step 2: column nodes + HAS_COLUMN edges
         column_nodes, has_column_edges = self._create_column_nodes(bundle, build_id)
 
-        # Step 3: containment edges (Schema → Asset CONTAINS)
-        containment_edges = self._create_containment_edges(bundle, asset_nodes, build_id)
+        # Step 3: schema nodes + containment edges (Schema → Asset CONTAINS)
+        schema_nodes, containment_edges = self._create_schema_nodes_and_edges(bundle, build_id)
 
         # Step 4: lineage edges (DEPENDS_ON, confidence 1.0)
         lineage_edges = self._create_lineage_edges(bundle, build_id)
@@ -62,7 +63,7 @@ class StructuralGraphCompiler:
         # Step 7: doc nodes + DOCUMENTED_BY edges
         doc_nodes, documented_by_edges = self._attach_doc_nodes(bundle, asset_nodes, build_id)
 
-        all_nodes = asset_nodes + column_nodes + test_nodes + doc_nodes
+        all_nodes = asset_nodes + column_nodes + schema_nodes + test_nodes + doc_nodes
         all_edges = (
             has_column_edges
             + containment_edges
@@ -176,33 +177,66 @@ class StructuralGraphCompiler:
     # ------------------------------------------------------------------ #
     # Step 3                                                               #
     # ------------------------------------------------------------------ #
-    def _create_containment_edges(
-        self, bundle: CanonicalBundle, asset_nodes: List[GraphNode], build_id: str
-    ) -> List[GraphEdge]:
-        edges = []
+    def _create_schema_nodes_and_edges(
+        self, bundle: CanonicalBundle, build_id: str
+    ) -> Tuple[List[GraphNode], List[GraphEdge]]:
+        """Emit one Schema node per unique (database, schema_name) pair and a
+        CONTAINS edge from each Schema to every asset it holds.
+
+        Assets with no schema_name are skipped — they produce no Schema node
+        and no CONTAINS edge.
+        """
+        # Group assets by (database, schema_name)
+        by_schema: Dict[tuple, List[CanonicalAsset]] = {}
         for asset in bundle.assets:
             if not asset.schema_name:
                 continue
-            schema_node_id = f"schema_{stable_hash(asset.database or '', asset.schema_name)}"
-            edge_id = f"e_{stable_hash(schema_node_id, asset.internal_id, 'CONTAINS')}"
-            ev = EvidenceRecord.auto(
-                rule_id="structural.containment",
+            key = (asset.database or "", asset.schema_name)
+            by_schema.setdefault(key, []).append(asset)
+
+        schema_nodes: List[GraphNode] = []
+        edges: List[GraphEdge] = []
+
+        for (database, schema_name), assets in by_schema.items():
+            node_ev = EvidenceRecord.auto(
+                rule_id="structural.schema_node",
                 confidence=1.0,
-                evidence_sources=[{"type": "canonical_asset_schema", "value": asset.schema_name}],
+                evidence_sources=[
+                    {"type": "canonical_asset_schema", "value": schema_name},
+                    {"type": "canonical_asset_database", "value": database},
+                ],
                 build_id=build_id,
             )
-            edges.append(
-                GraphEdge(
-                    edge_id=edge_id,
-                    edge_type=EdgeType.CONTAINS,
-                    source_node_id=schema_node_id,
-                    target_node_id=asset.internal_id,
-                    properties={"confidence": 1.0},
-                    evidence=ev.to_dict(),
+            schema_node = GraphNode.from_schema(
+                schema_name=schema_name,
+                database=database,
+                asset_count=len(assets),
+                build_id=build_id,
+                evidence=node_ev.to_dict(),
+            )
+            schema_nodes.append(schema_node)
+
+            for asset in assets:
+                edge_id = f"e_{stable_hash(schema_node.node_id, asset.internal_id, 'CONTAINS')}"
+                edge_ev = EvidenceRecord.auto(
+                    rule_id="structural.containment",
+                    confidence=1.0,
+                    evidence_sources=[{"type": "canonical_asset_schema", "value": schema_name}],
                     build_id=build_id,
                 )
-            )
-        return edges
+                edges.append(
+                    GraphEdge(
+                        edge_id=edge_id,
+                        edge_type=EdgeType.CONTAINS,
+                        source_node_id=schema_node.node_id,
+                        target_node_id=asset.internal_id,
+                        properties={"confidence": 1.0},
+                        evidence=edge_ev.to_dict(),
+                        build_id=build_id,
+                    )
+                )
+
+        return schema_nodes, edges
 
     # ------------------------------------------------------------------ #
     # Step 4                                                               #

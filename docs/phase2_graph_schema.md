@@ -9,7 +9,7 @@ property graph persisted as two JSON files:
 
 | file              | description                              | golden run count |
 |-------------------|------------------------------------------|-----------------|
-| `nodes.json`      | Array of node objects                    | 3 165           |
+| `nodes.json`      | Array of node objects                    | 3 172           |
 | `edges.json`      | Array of edge objects                    | 3 365           |
 
 Every node and edge carries an `EvidenceRecord` with a `build_id` that ties it to the
@@ -23,6 +23,7 @@ exact pipeline run that created it.
 |--------------|---------------|------------------|-----------------------------------------------------------|
 | `Asset`      | 207           | `asset_`         | A dbt model or source table                               |
 | `Column`     | 2 654         | `col_`           | A column belonging to an asset                            |
+| `Schema`     | 7             | `schema_`        | Logical container grouping assets under a `(database, schema_name)` key |
 | `Test`       | 96            | `test_`          | A dbt data quality test attached to a column              |
 | `DocObject`  | 207           | `doc_`           | Documentation presence record for an asset                |
 | `_BuildMeta` | 1             | `_build_`        | Internal: records pipeline run metadata (not for queries) |
@@ -68,6 +69,18 @@ exact pipeline run that created it.
 | `column_name` | string | The column being tested                       |
 | `status`      | string | `"unknown"` (Phase 1 does not run tests)      |
 
+### Schema node properties
+
+| property        | type          | description                                                |
+|-----------------|---------------|------------------------------------------------------------|
+| `schema_id`     | string        | Stable hash ID (`schema_` + sha256[:16] of `database::schema_name`) |
+| `name`          | string        | Raw schema name from dbt (e.g. `hx`, `publish`, `liberty_link`) |
+| `database`      | string\|null  | Physical database name (e.g. `mart_lii_hx_rating_db`); `null` if absent |
+| `asset_count`   | int           | Number of assets contained by this schema — useful for graph summary views |
+
+One Schema node is emitted per unique `(database, schema_name)` pair observed on bundle assets.
+Assets with no `schema_name` are skipped entirely and do not appear in any `CONTAINS` edge.
+
 ### DocObject node properties
 
 | property        | type   | description                                     |
@@ -83,13 +96,13 @@ exact pipeline run that created it.
 | edge_type      | source label | target label | count (golden) | description                                      |
 |----------------|--------------|--------------|---------------|--------------------------------------------------|
 | `HAS_COLUMN`   | Asset        | Column       | 2 654         | Asset owns column                                |
-| `CONTAINS`     | Schema*      | Asset        | 207           | Schema logically contains asset                  |
+| `CONTAINS`     | Schema       | Asset        | 207           | Schema logically contains asset                  |
 | `DEPENDS_ON`   | Asset        | Asset        | 201           | Asset depends on upstream asset                  |
 | `TESTED_BY`    | Column       | Test         | 96            | Column has a dbt test                            |
 | `DOCUMENTED_BY`| Asset        | DocObject    | 207           | Asset has a documentation record                 |
 
-\* Schema nodes (prefix `schema_`) are **virtual** — they are referenced in `CONTAINS` edges
-but are not persisted as `nodes.json` entries. They represent dbt schemas as logical containers.
+All `CONTAINS` edge source IDs resolve to real Schema nodes in `nodes.json` (prior to April 2026
+the Schema endpoints were virtual dangling references — see `docs/backlog.md` for the fix entry).
 
 ### DEPENDS_ON edge properties
 
@@ -136,6 +149,7 @@ Every non-`_BuildMeta` node and edge carries an `evidence` object:
 | `structural.asset_node`      | Step 1 — asset nodes   |
 | `structural.column_node`     | Step 2 — column nodes  |
 | `structural.has_column`      | Step 2 — HAS_COLUMN edges |
+| `structural.schema_node`     | Step 3 — Schema nodes  |
 | `structural.containment`     | Step 3 — CONTAINS edges |
 | `lineage.explicit_upstream`  | Step 4 — DEPENDS_ON edges |
 | `structural.test_node`       | Step 6 — Test nodes    |
@@ -176,9 +190,6 @@ Not used in the default pipeline. Same interface as `JsonGraphStore`.
 ---
 
 ## Limitations
-
-- **Schema nodes are virtual** — `CONTAINS` edge sources (`schema_*`) are not in
-  `nodes.json`. Schema-level graph queries cannot resolve these source IDs.
 
 - **SQL column lineage disabled** — Step 5 (`_create_sql_column_edges`) is gated by
   `ENABLE_SQL_LINEAGE=true`. It is not implemented; the gate is a placeholder.

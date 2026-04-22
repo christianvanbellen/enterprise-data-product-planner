@@ -43,6 +43,27 @@ class GraphNode:
         )
 
     @classmethod
+    def from_schema(
+        cls, schema_name: str, database: str, asset_count: int,
+        build_id: str, evidence: Dict[str, Any],
+    ) -> "GraphNode":
+        """Create a Schema node. node_id matches the CONTAINS edge source format."""
+        node_id = f"schema_{stable_hash(database or '', schema_name)}"
+        props = {
+            "schema_id": node_id,
+            "name": schema_name,
+            "database": database or None,
+            "asset_count": asset_count,
+        }
+        return cls(
+            node_id=node_id,
+            label="Schema",
+            properties=props,
+            evidence=evidence,
+            build_id=build_id,
+        )
+
+    @classmethod
     def from_business_entity(cls, entity_label: str, build_id: str, evidence: Dict[str, Any]) -> "GraphNode":
         node_id = f"entity_{stable_hash('semantic', 'entity', entity_label)}"
         props = {

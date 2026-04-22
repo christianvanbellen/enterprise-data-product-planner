@@ -55,6 +55,7 @@ Defined in `graph/compiler/evidence.py`:
 | `structural.asset_node` | Asset node | Step 1 — asset node creation |
 | `structural.column_node` | Column node | Step 2 — column node creation |
 | `structural.has_column` | HAS_COLUMN edge | Step 2 — column attachment |
+| `structural.schema_node` | Schema node | Step 3 — schema node creation |
 | `structural.containment` | CONTAINS edge | Step 3 — schema containment |
 | `lineage.explicit_upstream` | DEPENDS_ON edge | Step 4 — dbt upstream lineage |
 | `structural.test_node` | Test node | Step 6 — dbt test nodes |

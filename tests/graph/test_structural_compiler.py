@@ -100,6 +100,37 @@ def test_doc_node_count(minimal_bundle):
     assert artifact.node_counts.get("DocObject", 0) == 3
 
 
+def test_schema_nodes_emitted_and_no_dangling_contains_edges(minimal_bundle):
+    """Every CONTAINS edge source must resolve to a real Schema node."""
+    compiler = StructuralGraphCompiler()
+    nodes, edges, artifact = compiler.compile(minimal_bundle, build_id="test_build")
+
+    schema_nodes = [n for n in nodes if n.label == "Schema"]
+    assert schema_nodes, "Expected at least one Schema node"
+
+    schema_ids = {n.node_id for n in schema_nodes}
+    contains_edges = [e for e in edges if e.edge_type == EdgeType.CONTAINS]
+    dangling = [e for e in contains_edges if e.source_node_id not in schema_ids]
+    assert not dangling, f"Dangling CONTAINS edge source refs: {dangling}"
+
+
+def test_schema_node_asset_count_matches_contained_assets(minimal_bundle):
+    """Schema.asset_count must equal the number of CONTAINS edges from it."""
+    compiler = StructuralGraphCompiler()
+    nodes, edges, artifact = compiler.compile(minimal_bundle, build_id="test_build")
+
+    schema_nodes = [n for n in nodes if n.label == "Schema"]
+    for s in schema_nodes:
+        outgoing = [
+            e for e in edges
+            if e.edge_type == EdgeType.CONTAINS and e.source_node_id == s.node_id
+        ]
+        assert s.properties["asset_count"] == len(outgoing), (
+            f"Schema {s.properties['name']}: asset_count={s.properties['asset_count']} "
+            f"but {len(outgoing)} CONTAINS edges originate from it"
+        )
+
+
 # ------------------------------------------------------------------ #
 # DEPENDS_ON edge confidence                                            #
 # ------------------------------------------------------------------ #
