@@ -96,7 +96,7 @@ affecting spec quality downstream.
 
 ---
 
-### `data/output_schema_conformed_data_only_-From_Robbie-06Mar2025.json`
+### `data/conformed_schema.json`
 
 **What it is:** JSON Schema file defining the canonical business vocabulary for the warehouse.
 Authored by the warehouse modelling architect. The most architecturally significant input

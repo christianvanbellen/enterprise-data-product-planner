@@ -1,6 +1,6 @@
 # Conformed Schema Artifact Spec
 
-**Artifact name:** `conformed_schema.json` (also shipped as `output_schema_conformed_data_only_-From_Robbie-06Mar2025.json`)
+**Artifact name:** `conformed_schema.json`
 **Current version confirmed against:** JSON Schema draft-04
 **Current producer:** the warehouse modelling architect (authored manually)
 

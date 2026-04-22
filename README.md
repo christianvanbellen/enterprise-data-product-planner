@@ -102,7 +102,7 @@ cp .env.example .env
 ```bash
 uv run python scripts/run_phase1.py \
   --dbt-metadata data/dbt_metadata_enriched.json \
-  --conformed-schema "data/output_schema_conformed_data_only_-From_Robbie-06Mar2025.json" \
+  --conformed-schema data/conformed_schema.json \
   --output output/bundle.json
 ```
 
