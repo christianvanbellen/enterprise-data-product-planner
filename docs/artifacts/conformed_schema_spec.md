@@ -26,6 +26,67 @@ two-model architecture.
 
 ---
 
+## What a "term" is — the mental model
+
+The adapter parses this file into `CanonicalBusinessTerm` objects. Before reading the rest
+of this document, it helps to understand what a term is *not* and what it is.
+
+**A term is not a column.** Columns come from the dbt metadata — one `CanonicalColumn`
+exists per actual column in the warehouse. Terms come from the conformed schema and describe
+the *canonical business vocabulary*. A term like `gross_rarc` exists even if no warehouse
+asset has a `gross_rarc` column yet.
+
+**A term is not asset-specific.** A term doesn't belong to any particular warehouse table.
+It belongs to a conceptual group (`coverage`, `policy`, etc.) and states "this field name
+is part of the canonical shape of this concept".
+
+**A term *is* a reference pattern that warehouse columns are matched against.** In Phase 3,
+`ConformedFieldBinder` takes the set of canonical field-level term names under each group
+and intersects it with every warehouse asset's column set. If the overlap ratio meets
+`OVERLAP_THRESHOLD` (default 0.5), the asset gets a `REPRESENTS` edge to that group's
+`BusinessEntityNode`.
+
+### Concrete walk-through
+
+Say the `coverage` group declares 21 canonical field names:
+```
+filter, primary_coverage, quote_name, new_renewal, lsm_participation,
+section, coverage, inception_date, expiry_date, policy_currency,
+exposure, exposure_type, limit_100, limit_type,
+excess, deductible_value, deductible_type,
+claims_trigger, policy_coverage_jurisdiction, tech_elc, modtech_elc
+```
+
+And the warehouse has an asset `ll_quote_coverage_detail` with actual columns:
+```
+quote_id, layer_id, coverage_id, pas_id, quote_name, new_renewal,
+section, coverage, exposure_type, limit_type, deductible_type,
+claims_trigger, policy_coverage_jurisdiction, inception_date, expiry_date, ...
+```
+
+The binder computes the intersection (`quote_name`, `section`, `coverage`, `inception_date`,
+`expiry_date`, `new_renewal`, `exposure_type`, `limit_type`, `deductible_type`,
+`claims_trigger`, `policy_coverage_jurisdiction`, …) and divides by 21. If the ratio is
+≥ 0.5, it emits:
+
+```
+ll_quote_coverage_detail  ──REPRESENTS──►  coverage (BusinessEntityNode)
+```
+
+That edge is the foundation of everything downstream — Phase 4 primitives look up which
+assets are bound to which entity to decide whether a capability is confirmed. Columns on
+`ll_quote_coverage_detail` that are *not* in the canonical field set (`quote_id`, `layer_id`,
+`coverage_id`, `pas_id`) are still valid columns on the asset; they just don't contribute
+to binding.
+
+### The mental model in one line
+
+> The conformed schema is the *dictionary* of canonical business field names; the dbt
+> metadata is the *inventory* of actual warehouse columns; Phase 3 is the *matching step*
+> that decides which inventory items correspond to which dictionary entries.
+
+---
+
 ## Root structure
 
 ```jsonc
