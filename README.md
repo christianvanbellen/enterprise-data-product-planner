@@ -347,6 +347,7 @@ enterprise-data-product-planner/
 | `docs/phase6_architecture_alignment.md` | Architecture alignment report design, pricing_decomposition case study, output artefacts | April 2026 |
 | `docs/backlog.md` | Deferred items, known limitations, open schema gaps | April 2026 |
 | `docs/artifacts/dbt_metadata_spec.md` | Expected dbt manifest JSON structure and version compatibility | April 2026 |
+| `docs/artifacts/conformed_schema_spec.md` | Conformed schema JSON structure, adapter behaviour, and the pricing_component gap | April 2026 |
 
 ---
 

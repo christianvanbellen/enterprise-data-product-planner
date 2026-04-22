@@ -102,6 +102,10 @@ affecting spec quality downstream.
 Authored by the warehouse modelling architect. The most architecturally significant input
 to the pipeline — it defines which business concepts the analytics layer can formally recognise.
 
+**Full structural spec:** see `docs/artifacts/conformed_schema_spec.md` for the exact JSON
+Schema shape, the two group shapes the adapter recognises (array vs object-of-objects),
+the term hierarchy produced, and the pricing_component gap remediation.
+
 **Read by:** `ConformedSchemaAdapter` (Phase 1)
 
 **Contains:**
