@@ -1,6 +1,35 @@
 # Composable Data Product Planner — Phase 1 & 2
 ## Foundation Architecture Plan
 
+> ⚠ **HISTORIC ARTEFACT — ORIGINAL DESIGN BRIEF (pre-implementation)**
+>
+> This document is the pre-implementation design brief for Phases 1 and 2, written
+> before any code was committed. It is retained for historical context only. The
+> implementation has evolved materially since: the repo was renamed, phases 3–5
+> were added, several "Future" items were implemented, several planned components
+> (`storage/`, `api/`) remain as stubs, and some artefacts referenced here
+> (e.g. `insurance_domains.yaml`) have since been removed.
+>
+> **Do not use this file as a reference for current state.** For current documentation:
+>
+> | Topic | Current document |
+> |-------|------------------|
+> | Repo structure and pipeline entry points | `README.md` |
+> | Cross-cutting design decisions | `ARCHITECTURE.md` |
+> | Editable configuration reference | `docs/inputs.md` |
+> | Phase 1 data contracts | `docs/phase1_contracts.md` |
+> | Phase 2 graph schema | `docs/phase2_graph_schema.md` |
+> | Evidence model | `docs/evidence_model.md` |
+> | Phase 3 design | `docs/phase3_design_brief.md` |
+> | Phase 4 opportunity layer | `docs/phase4_opportunity_layer.md` |
+> | Phase 5 spec generator | `docs/phase5_spec_generator.md` |
+> | Phase 6 alignment report (scoped) | `docs/phase6_architecture_alignment.md` |
+>
+> The content below is preserved verbatim from the original brief and **has not been
+> updated** to reflect implementation changes. Treat it as a historical snapshot.
+>
+> ---
+
 > **Product thesis:** A compiler-style system that converts dbt metadata, SQL lineage, conformed schemas, and ERD context into a deterministic multi-layer graph of analytical assets and business semantics. The moat is not LLM reasoning over raw data — it is the structured intermediate pipeline that makes every output inspectable, repeatable, and evidence-backed.
 
 ---
