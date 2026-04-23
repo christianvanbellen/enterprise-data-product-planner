@@ -32,8 +32,9 @@ EXTERNAL DATA INPUTS                          ONTOLOGY CONFIGURATION
                                    Phase 2 ─► Structural graph
                                       │       (no editorial inputs)
                                       │
-                                      │       ontology/insurance_entities.yaml
                                       │       ontology/entity_groups.yaml
+                                      │       ontology/entity_bindings.yaml
+                                      │       ontology/metric_patterns.yaml
                                       ▼
                                    Phase 3 ─► Semantic graph
                                       │
@@ -54,7 +55,7 @@ EXTERNAL DATA INPUTS                          ONTOLOGY CONFIGURATION
 | Change to | Re-run from | LLM cost |
 |-----------|-------------|----------|
 | `dbt_metadata_enriched.json` / `conformed_schema.json` / `tag_mappings.yaml` / `domain_keywords.yaml` / `semantic_map.yaml` / `grain_keys.yaml` | Phase 1 → 5 | Yes (Phase 5 re-render) |
-| `entity_groups.yaml` / `insurance_entities.yaml` / `entity_bindings.yaml` / `metric_patterns.yaml` | Phase 3 → 5 | Yes (Phase 5 re-render) |
+| `entity_groups.yaml` / `entity_bindings.yaml` / `metric_patterns.yaml` | Phase 3 → 5 | Yes (Phase 5 re-render) |
 | `initiative_research.yaml` / `primitives.yaml` | Phase 4 → 5 | Yes (Phase 5 re-render) |
 | `delivery_heuristics.yaml` | Phase 5 only with `--force-render` | No (pre-rendered section) |
 | `_SYSTEM_PROMPT` in `renderer.py` | Phase 5 only with `--force-render` | Yes |
@@ -299,27 +300,6 @@ grain match computation.
 
 ---
 
-### `ontology/insurance_entities.yaml`
-
-**Read by:** `OntologyLoader.allowed_entities()` (Phase 3) — used as a validation whitelist
-
-**What it is:** The registry of recognised semantic entity labels. When Phase 3 creates
-`BusinessEntityNode` objects, the entity labels must appear in this list.
-
-**Current entities (9):** `policyholder`, `broker`, `claim`, `coverage`, `policy`,
-`pricing_component`, `profitability_component`, `exposure`, `underwriter`. `line_of_business`
-was removed in April 2026 when Signal 3 was dropped — product-line data stays on
-each asset's `tag_dimensions` and is surfaced via tag-based primitive matching, not as
-a BusinessEntityNode.
-
-**Effect of changes:**
-- Adding an entity here is a necessary but not sufficient step to activate it — you must
-  also add it to `entity_groups.yaml` and add a corresponding parent term to the conformed
-  schema JSON for asset binding to occur
-- Removing an entity → any asset currently bound to it loses its entity binding in Phase 3
-
----
-
 ### `ontology/entity_groups.yaml` *(migrated April 2026)*
 
 **Read by:** `ConformedFieldBinder` at class load (Phase 3)
@@ -356,16 +336,20 @@ This is the highest-impact single edit in the pipeline.
 
 ---
 
-### `ontology/entity_bindings.yaml` *(migrated April 2026)*
+### `ontology/entity_bindings.yaml` *(migrated April 2026; absorbed insurance_entities.yaml April 2026)*
 
-**Read by:** `EntityMapper` and `SynonymRegistry` at module load (Phase 3)
+**Read by:** `EntityMapper` and `SynonymRegistry` at module load (Phase 3) —
+single source of truth for the entity layer.
 
 **What it controls:** Unified configuration for the four-signal entity-mapping
 logic. Contains:
 
+- `entities` — whitelist of recognised entity labels. Any REPRESENTS candidate
+  whose label is not in this list is dropped with a warning. **Gap-aware
+  philosophy**: keep an entity here even if it has zero warehouse signal — the
+  resulting "0 candidacy" audit row is the backlog prompt for the data team.
 - `confidence` — merger thresholds and per-signal weight multipliers
-  (`min_threshold`, `conflict_threshold`, `signal_2_scale`, `signal_3_flat`,
-  `signal_4_flat`).
+  (`min_threshold`, `conflict_threshold`, `signal_2_scale`, `signal_4_flat`).
 - `conformed_group_to_entity` — Signal 1: translates conformed-schema group
   names (`ontology/entity_groups.yaml`) to ontology entity labels.
 - `entity_signatures` — Signal 2: per-entity set of column `normalized_name`s.
@@ -376,9 +360,7 @@ logic. Contains:
   `tests/graph/test_synonym_registry.py`. Retained for now; revisit when
   the entity-model research pass lands.
 
-Signal 3 (tag-dimension bindings) does NOT live here — it stays in
-`ontology/tag_mappings.yaml` under each dimension's `entity_bindings` block,
-because it's co-located with the tag mappings it depends on.
+Signal 3 was removed in April 2026 and is intentionally absent.
 
 **Effect of changes:**
 - Adding a column to `entity_signatures[<entity>]` → that column now
@@ -620,7 +602,6 @@ edit for changing spec style, tone, or section content across the full portfolio
 | `domain_keywords.yaml` | ✓ | DbtMetadataAdapter | 1 |
 | `semantic_map.yaml` | ✓ | DbtMetadataAdapter | 1 |
 | `grain_keys.yaml` | ✓ | DbtMetadataAdapter | 1 |
-| `insurance_entities.yaml` | ✓ | OntologyLoader | 3 |
 | `entity_groups.yaml` | ✓ | ConformedFieldBinder | 3 |
 | `entity_bindings.yaml` | ✓ | EntityMapper, SynonymRegistry | 3 |
 | `metric_patterns.yaml` | ✓ | SemanticGraphCompiler | 3 |

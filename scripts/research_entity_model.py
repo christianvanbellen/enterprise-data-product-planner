@@ -10,8 +10,7 @@ so the research is done in a single pass with cross-layer coherence analysis.
 
 Runs OUT OF the Phase 1-5 pipeline. Writes a versioned markdown brief to
 ontology/research_log/entity_model/ that the curator then reads and uses to
-edit entity_bindings.yaml, insurance_entities.yaml, and primitives.yaml
-manually. Nothing about this script mutates configuration directly.
+edit entity_bindings.yaml and primitives.yaml manually. Nothing about this script mutates configuration directly.
 
 Inputs:
   --bundle        CanonicalBundle from Phase 1 (warehouse signal).
@@ -64,7 +63,6 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _REFERENCE_DIR = _REPO_ROOT / "ontology" / "reference_frameworks"
 _LOG_DIR = _REPO_ROOT / "ontology" / "research_log" / "entity_model"
 _ENTITY_BINDINGS_YAML = _REPO_ROOT / "ontology" / "entity_bindings.yaml"
-_INSURANCE_ENTITIES_YAML = _REPO_ROOT / "ontology" / "insurance_entities.yaml"
 _ENTITY_GROUPS_YAML = _REPO_ROOT / "ontology" / "entity_groups.yaml"
 _PRIMITIVES_YAML = _REPO_ROOT / "ontology" / "primitives.yaml"
 
@@ -76,8 +74,8 @@ a combined entity and primitive design review. You have been given:
 
   1. A reference framework (authoritative external taxonomy).
   2. The current warehouse signal (asset names, tags, sample columns).
-  3. The current entity config (insurance_entities.yaml, entity_bindings.yaml,
-     entity_groups.yaml) — what the pipeline recognises today.
+  3. The current entity config (entity_bindings.yaml, entity_groups.yaml) —
+     what the pipeline recognises today.
   4. The current primitive catalogue (primitives.yaml) — what analytical
      capabilities are defined, and which entities each requires.
   5. Optionally, an entity audit report showing unbound rate, dead signatures,
@@ -245,7 +243,6 @@ def _build_user_message(
     reference: str,
     signal_str: str,
     entity_bindings_yaml: str,
-    insurance_entities_yaml: str,
     entity_groups_yaml: str,
     primitives_yaml: str,
     audit_report: Optional[str],
@@ -256,12 +253,6 @@ def _build_user_message(
         reference,
         "",
         "---",
-        "",
-        "# Current entity config — insurance_entities.yaml",
-        "",
-        "```yaml",
-        insurance_entities_yaml,
-        "```",
         "",
         "# Current entity config — entity_bindings.yaml",
         "",
@@ -380,14 +371,13 @@ def main(
     signal = _warehouse_signal(bundle)
     signal_str = _format_signal(signal)
     entity_bindings = _safe_read(_ENTITY_BINDINGS_YAML, "entity_bindings.yaml")
-    insurance_entities = _safe_read(_INSURANCE_ENTITIES_YAML, "insurance_entities.yaml")
     entity_groups = _safe_read(_ENTITY_GROUPS_YAML, "entity_groups.yaml")
     primitives = _safe_read(_PRIMITIVES_YAML, "primitives.yaml")
     audit_text = audit_report.read_text(encoding="utf-8") if audit_report else None
 
     user_msg = _build_user_message(
         reference_text, signal_str,
-        entity_bindings, insurance_entities, entity_groups,
+        entity_bindings, entity_groups,
         primitives, audit_text,
     )
 

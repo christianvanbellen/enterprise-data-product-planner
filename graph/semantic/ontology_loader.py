@@ -58,4 +58,5 @@ class SynonymRegistry:
 
     @classmethod
     def allowed_entities(cls) -> List[str]:
-        return _load_yaml("insurance_entities.yaml").get("entities", [])
+        """Entity whitelist loaded from ontology/entity_bindings.yaml."""
+        return list(cls._BINDINGS.get("entities") or [])

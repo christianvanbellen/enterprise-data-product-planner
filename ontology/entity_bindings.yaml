@@ -1,15 +1,38 @@
-# entity_bindings.yaml — Phase 3 entity-mapping configuration
+# entity_bindings.yaml — single source of truth for the entity layer (Phase 3)
 #
 # Read by:
 #   - EntityMapper (graph/semantic/entity_mapper.py) — confidence weights,
 #     conformed_group_to_entity, asset_name_patterns
-#   - SynonymRegistry (graph/semantic/ontology_loader.py) — entity_signatures,
-#     column_synonyms
+#   - SynonymRegistry (graph/semantic/ontology_loader.py) — entities whitelist,
+#     entity_signatures, column_synonyms
 #
 # Each asset receives zero or more (entity_label, confidence) candidates from
 # four signal sources, which EntityMapper merges and resolves with the
 # thresholds below. See docs/inputs.md — entity_bindings.yaml section for the
 # end-to-end flow.
+
+# ──────────────────────────────────────────────────────────────────────────
+# Entity whitelist
+# ──────────────────────────────────────────────────────────────────────────
+# The set of labels that BusinessEntityNodes may carry. Any candidate whose
+# entity_label is not in this list is silently dropped with a warning.
+#
+# Gap-aware philosophy: a label SHOULD appear here even if the current
+# warehouse produces zero candidates for it — the resulting
+# "entity: 0 candidacy" audit row is the backlog signal that tells the data
+# team which business concepts the pipeline is expected to recognise but
+# can't see yet. Do not remove an entity just because it's empty today.
+
+entities:
+  - policyholder
+  - broker
+  - claim
+  - coverage
+  - policy
+  - pricing_component
+  - profitability_component
+  - exposure
+  - underwriter
 
 # ──────────────────────────────────────────────────────────────────────────
 # Confidence weights
