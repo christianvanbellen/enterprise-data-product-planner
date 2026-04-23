@@ -57,7 +57,10 @@ _LOG_DIR = _REPO_ROOT / "ontology" / "research_log" / "domain_taxonomy"
 _CURRENT_YAML = _REPO_ROOT / "ontology" / "domain_keywords.yaml"
 
 _DEFAULT_MODEL = "claude-opus-4-7"
-_MAX_TOKENS = 8000
+# Research briefs run long. Opus supports up to 32k output tokens; 16k is a safe
+# default that leaves headroom for a full multi-section brief without routinely
+# truncating the last section. Bump higher via --max-tokens if needed.
+_MAX_TOKENS = 16000
 
 _SYSTEM_PROMPT = """You are an insurance data domain architect running a \
 taxonomy design review. You have been given:
@@ -227,7 +230,8 @@ def _default_output_path(signal: dict) -> Path:
     return _LOG_DIR / f"v{n}_{today}_{fingerprint}.md"
 
 
-def _call_anthropic(model: str, system: str, user: str) -> str:
+def _call_anthropic(model: str, system: str, user: str, max_tokens: int) -> tuple[str, str]:
+    """Returns (text, stop_reason). stop_reason='max_tokens' means the output was truncated."""
     try:
         import anthropic
     except ImportError:
@@ -243,11 +247,12 @@ def _call_anthropic(model: str, system: str, user: str) -> str:
     console.print(f"[cyan]Calling {model}[/cyan] — this may take 30–90 seconds…")
     message = client.messages.create(
         model=model,
-        max_tokens=_MAX_TOKENS,
+        max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user}],
     )
-    return message.content[0].text if message.content else ""
+    text = message.content[0].text if message.content else ""
+    return text, getattr(message, "stop_reason", "") or ""
 
 
 @app.command()
@@ -267,6 +272,10 @@ def main(
     output: Optional[Path] = typer.Option(
         None, "--output",
         help="Override output path (default: ontology/research_log/domain_taxonomy/vN_<date>_<hash>.md)",
+    ),
+    max_tokens: int = typer.Option(
+        _MAX_TOKENS, "--max-tokens",
+        help="Override output token cap (default 16000). Bump if briefs truncate.",
     ),
     dry_run: bool = typer.Option(
         False, "--dry-run",
@@ -288,7 +297,14 @@ def main(
                       f"(≈ {len(user_msg) // 4} tokens)")
         return
 
-    response = _call_anthropic(model, _SYSTEM_PROMPT, user_msg)
+    response, stop_reason = _call_anthropic(model, _SYSTEM_PROMPT, user_msg, max_tokens)
+
+    if stop_reason == "max_tokens":
+        console.print(
+            "[yellow]Warning:[/yellow] response hit the max-tokens ceiling "
+            f"({max_tokens}). The brief is likely truncated. Rerun with "
+            "`--max-tokens <higher>` to capture the full output."
+        )
 
     header = [
         "---",
@@ -297,6 +313,8 @@ def main(
         f"model: {model}",
         f"generated_utc: {datetime.now(timezone.utc).isoformat()}",
         f"asset_fingerprint: {stable_hash(json.dumps(signal['asset_names'], sort_keys=True))[:8]}",
+        f"max_tokens: {max_tokens}",
+        f"stop_reason: {stop_reason}",
         "---",
         "",
         "# Domain taxonomy research",
