@@ -34,7 +34,14 @@ class CanonicalAsset(BaseModel):
     row_count: Optional[int] = None
     size_mb: Optional[float] = None
     grain_keys: List[str] = Field(default_factory=list)
+    # Domains this asset matched, sorted by score desc. The first entry is the
+    # strongest evidence domain — see domain_scores for the raw numbers and
+    # ingestion/adapters/dbt_metadata.py _DOMAIN_FIELD_WEIGHTS for the formula.
     domain_candidates: List[str] = Field(default_factory=list)
+    # Raw match-strength score per matched domain. Keys match domain_candidates.
+    # A name-only hit scores 3.0; a column-only hit scores 0.5. Consumers derive
+    # a confidence from this in graph/semantic/domain_assigner.py.
+    domain_scores: Dict[str, float] = Field(default_factory=dict)
     # Per-dimension tag classification derived from dbt tags. Keys are dimension names
     # registered in ontology/tag_mappings.yaml (e.g. "lineage_layer", "product_line").
     # Values are lists of mapped tag values for that dimension, in tag order, deduplicated.

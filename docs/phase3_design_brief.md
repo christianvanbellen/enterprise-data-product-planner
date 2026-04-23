@@ -80,10 +80,16 @@ Phase 3 can propagate downstream via lineage.
 ### Distribution domain gap
 
 Distribution is **not absent** from the graph — 11 assets have `distribution` in
-their `domain_candidates` list. The apparent gap in the HTML explorer arises
-because distribution is almost always a *secondary* domain: assets are color-coded
-by their first/primary domain candidate, which is typically `underwriting` or
-`pricing`. Distribution assets therefore appear in those colors.
+their `domain_candidates` list. Historically the apparent gap in the HTML explorer
+arose because distribution was almost always a *secondary* domain: under the
+original implementation the primary (colour-driving) domain was simply the first
+match in YAML iteration order, so distribution lost to whichever of `pricing` /
+`underwriting` happened to match. This has since been replaced by a field-weighted
+match-strength score (`_infer_domains` in `ingestion/adapters/dbt_metadata.py`),
+so the primary now genuinely reflects evidence strength. Distribution still wins
+few primaries (4 of 171), but now because its keyword corpus produces narrower
+matches — not because the ordering is arbitrary. The keyword-corpus fix below
+remains the right follow-up.
 
 **What the current keyword set captures** (`['broker', 'channel', 'branch']`):
 - `hx_general_aviation_summary_brokerage` and its mirror

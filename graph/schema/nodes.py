@@ -29,6 +29,7 @@ class GraphNode:
             "row_count": asset.row_count,
             "grain_keys": asset.grain_keys,
             "domain_candidates": asset.domain_candidates,
+            "domain_scores": asset.domain_scores,
             "tag_dimensions": asset.tag_dimensions,
             "is_enabled": asset.is_enabled,
             "version_hash": asset.version_hash,

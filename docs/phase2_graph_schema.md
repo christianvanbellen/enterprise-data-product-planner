@@ -42,7 +42,8 @@ exact pipeline run that created it.
 | `row_count`       | int\|null       | Last-known row count                                     |
 | `path`            | string\|null    | SQL file path relative to project root                   |
 | `tags`            | list[string]    | dbt tags                                                 |
-| `domain_candidates` | list[string] | Inferred domain labels from keyword scan                 |
+| `domain_candidates` | list[string] | Inferred domain labels, sorted by match-strength score desc (see `domain_scores`) |
+| `domain_scores`   | dict[string,float] | Per-domain raw match score (field-weighted, saturated per field). Drives BELONGS_TO_DOMAIN confidence in Phase 3 |
 | `grain_keys`      | list[string]    | Column names identified as grain keys (identifiers)      |
 | `is_enabled`      | bool            | Whether the dbt model is enabled                         |
 | `version_hash`    | string          | Stable hash of the source entity JSON (`sha256[:16]`)    |

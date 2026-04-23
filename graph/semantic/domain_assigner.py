@@ -16,17 +16,38 @@ class DomainAssignment:
     source: str     # "phase1_keyword" | "lineage_inheritance"
 
 
+_LINEAGE_INHERITANCE_CONFIDENCE = 0.5
+
+
+def _confidence_from_score(score: float) -> float:
+    """Map a Phase 1 match-strength score to a BELONGS_TO_DOMAIN confidence.
+
+    Anchored so a column-only hit (score 0.5, the weakest evidence that still
+    produces a candidate) maps to the 60% floor — weak but not dismissible.
+    Ceiling is 0.95, leaving headroom for the 1.0 reserved for explicit metadata.
+
+    Curve (with default _DOMAIN_FIELD_WEIGHTS):
+        column only  (0.5)  → 0.60
+        desc only    (1.0)  → 0.65
+        tag only     (2.0)  → 0.75
+        name only    (3.0)  → 0.85
+        name + col   (3.5)  → 0.90
+        name + desc  (4.0+) → 0.95 (cap)
+    """
+    return min(0.95, 0.55 + score * 0.1)
+
+
 class DomainAssigner:
     """Assign domain memberships.
 
-    Signal 1 — Phase 1 domain_candidates (already on CanonicalAsset):
-        primary   (index 0): confidence 0.85
-        secondary (index 1+): confidence 0.65
+    Signal 1 — Phase 1 domain_candidates + domain_scores (on CanonicalAsset):
+        confidence = min(0.95, 0.5 + score * 0.15), where score is the raw
+        match-strength produced by _infer_domains in the dbt adapter.
 
     Signal 2 — Lineage inheritance:
         If an asset has no domain_candidates but ALL its direct upstream
         assets share at least one domain, inherit those shared domain(s).
-        Confidence 0.5.
+        Confidence 0.5 (no underlying score to derive from).
     """
 
     def assign(
@@ -42,12 +63,12 @@ class DomainAssigner:
         # ---- Signal 1: Phase 1 domain_candidates ----
         for asset in bundle.assets:
             if asset.domain_candidates:
-                for i, domain in enumerate(asset.domain_candidates):
-                    conf = 0.85 if i == 0 else 0.65
+                for domain in asset.domain_candidates:
+                    score = asset.domain_scores.get(domain, 0.0)
                     assignments.append(DomainAssignment(
                         asset_id=asset.internal_id,
                         domain=domain,
-                        confidence=conf,
+                        confidence=_confidence_from_score(score),
                         source="phase1_keyword",
                     ))
             else:
@@ -89,7 +110,7 @@ class DomainAssigner:
                 assignments.append(DomainAssignment(
                     asset_id=asset_id,
                     domain=domain,
-                    confidence=0.5,
+                    confidence=_LINEAGE_INHERITANCE_CONFIDENCE,
                     source="lineage_inheritance",
                 ))
 

@@ -1,8 +1,12 @@
 # domain_keywords.yaml — keyword → business domain assignment (Phase 1)
 # Read by: DbtMetadataAdapter at module load.
 # Effect: each dbt model's name, description, tags, and column names are scanned against
-#         these keyword lists. Matching domains are added to asset.domain_candidates, which
-#         drives BELONGS_TO_DOMAIN edges in Phase 3 and domain colour coding in the graph explorer.
+#         these keyword lists. Each domain gets a match-strength score weighted by where
+#         the keyword hit (name=3.0, tag=2.0, description=1.0, column=0.5, saturated per
+#         field). Matching domains, sorted by score desc, become asset.domain_candidates;
+#         their raw scores populate asset.domain_scores. This drives BELONGS_TO_DOMAIN
+#         edge confidence in Phase 3 and domain colour coding in the graph explorer.
+#         See _infer_domains in ingestion/adapters/dbt_metadata.py for the exact formula.
 # Known gap: distribution domain is under-captured. Candidate additions:
 #   coverholder, mga, binder, lineslip, delegated, facility_fee
 #   — review context before adding (e.g. "facility" may mean Lloyd's facility or a building).

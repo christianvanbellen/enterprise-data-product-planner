@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ingestion.adapters.base import BaseAdapter
 from ingestion.contracts.asset import CanonicalAsset, CanonicalColumn
@@ -56,20 +56,61 @@ SOURCE_SYSTEM = "dbt"
 SOURCE_TYPE = "DbtMetadataAdapter"
 
 
+# A keyword hit in the model name is strong evidence; a hit in a single column name
+# is weak. Weights are saturated per field so one match is worth the same as five:
+# a domain that hits "premium" in five columns still scores 0.5 for the column field.
+_DOMAIN_FIELD_WEIGHTS: Dict[str, float] = {
+    "name": 3.0,
+    "tag": 2.0,
+    "description": 1.0,
+    "column": 0.5,
+}
+
+
 def _infer_domains(
     model_name: str,
     description: Optional[str],
     tags: List[str],
     column_names: List[str],
-) -> List[str]:
-    corpus = " ".join(
-        [model_name, description or ""] + tags + column_names
-    ).lower()
-    found = []
+) -> Tuple[List[str], Dict[str, float]]:
+    """Score each domain by where its keywords hit.
+
+    Returns (domain_candidates, domain_scores):
+      - domain_candidates: domains with score > 0, sorted by score desc,
+        then by total (keyword, field) hit count desc as a tiebreaker,
+        then by name asc as a final fallback.
+      - domain_scores: {domain: raw_score} for every candidate.
+
+    The hit-count tiebreaker rewards breadth of evidence: two domains with
+    identical field-saturated scores are separated by which one matched more
+    distinct keywords across all fields. This is invisible in the stored score
+    (which stays saturated per field) but surfaces in candidate ordering.
+
+    See _DOMAIN_FIELD_WEIGHTS for per-field evidence weights.
+    """
+    fields: Dict[str, str] = {
+        "name": (model_name or "").lower(),
+        "description": (description or "").lower(),
+        "tag": " ".join(tags).lower(),
+        "column": " ".join(column_names).lower(),
+    }
+
+    scores: Dict[str, float] = {}
+    hit_counts: Dict[str, int] = {}
     for domain, keywords in DOMAIN_KEYWORDS.items():
-        if any(kw in corpus for kw in keywords):
-            found.append(domain)
-    return found
+        score = 0.0
+        hits = 0
+        for field_name, field_weight in _DOMAIN_FIELD_WEIGHTS.items():
+            field_hits = sum(1 for kw in keywords if kw in fields[field_name])
+            if field_hits:
+                score += field_weight
+                hits += field_hits
+        if score > 0:
+            scores[domain] = score
+            hit_counts[domain] = hits
+
+    sorted_domains = sorted(scores, key=lambda d: (-scores[d], -hit_counts[d], d))
+    return sorted_domains, scores
 
 
 def _infer_grain_keys(column_names: List[str]) -> List[str]:
@@ -300,7 +341,7 @@ class DbtMetadataAdapter(BaseAdapter):
             json.dumps(entity, sort_keys=True, default=str)
         )
 
-        domain_candidates = _infer_domains(name, description, tags, column_names)
+        domain_candidates, domain_scores = _infer_domains(name, description, tags, column_names)
         grain_keys = _infer_grain_keys(column_names)
         tag_dimensions = _infer_tag_dimensions(tags)
 
@@ -334,6 +375,7 @@ class DbtMetadataAdapter(BaseAdapter):
             size_mb=size_mb,
             grain_keys=grain_keys,
             domain_candidates=domain_candidates,
+            domain_scores=domain_scores,
             tag_dimensions=tag_dimensions,
             is_enabled=entity.get("config", {}).get("enabled", True),
             version_hash=version_hash,

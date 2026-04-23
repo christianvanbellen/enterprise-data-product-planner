@@ -220,9 +220,26 @@ act on a specific dimension reference it by name.
 **Read by:** `DbtMetadataAdapter` at module load (Phase 1)
 
 **What it controls:** Keyword → domain assignment. During ingestion, each model's name,
-description, tags, and column names are scanned against these keyword lists. Any domain
-whose list matches is added to the asset's `domain_candidates`. These flow into Phase 3
-`BELONGS_TO_DOMAIN` edges and into the graph explorer's domain colour coding.
+description, tags, and column names are scanned against these keyword lists. Every
+matching domain receives a **match-strength score** weighted by where the keyword hit:
+
+| field matched | weight | saturation |
+|---------------|-------:|------------|
+| model name | 3.0 | one hit or many, counts once per field |
+| dbt tag | 2.0 | " |
+| description | 1.0 | " |
+| column name | 0.5 | " |
+
+So a domain matching on the model name scores 3.0; a domain whose only evidence is
+a single column match scores 0.5. Domains with score > 0 become the asset's
+`domain_candidates`, sorted by score desc (ties broken by total distinct `(keyword, field)`
+hit count, then alphabetically). Raw scores per matched domain are kept on
+`domain_scores`. Phase 3 maps score → BELONGS_TO_DOMAIN confidence via
+`min(0.95, 0.55 + score * 0.1)` (i.e. 60% floor for column-only hits, 95% cap for
+strong or stacked evidence).
+
+Tuning: add or remove keywords here to change which assets match. Scoring weights
+live in `_DOMAIN_FIELD_WEIGHTS` in `ingestion/adapters/dbt_metadata.py`.
 
 **Format:** `{ domain_name: [keyword, ...] }` — substring match, case-insensitive.
 

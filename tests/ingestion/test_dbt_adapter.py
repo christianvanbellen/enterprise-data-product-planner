@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 
-from ingestion.adapters.dbt_metadata import DbtMetadataAdapter, DOMAIN_KEYWORDS
+from ingestion.adapters.dbt_metadata import DbtMetadataAdapter, DOMAIN_KEYWORDS, _infer_domains
 
 GOLDEN_PATH = Path(__file__).parent.parent.parent / "data" / "dbt_metadata_enriched.json"
 MINIMAL_PATH = Path(__file__).parent / "golden" / "minimal_dbt_sample.json"
@@ -129,6 +129,123 @@ def test_golden_domain_candidates_are_from_allowed_set(golden_bundle):
                 f"Asset {asset.name!r} has invalid domain {domain!r}. "
                 f"Allowed: {ALLOWED_DOMAINS}"
             )
+
+
+def test_golden_domain_scores_consistent_with_candidates(golden_bundle):
+    """domain_scores must contain exactly the keys present in domain_candidates,
+    every score must be positive, and candidates must be sorted by score desc."""
+    for asset in golden_bundle.assets:
+        assert set(asset.domain_scores.keys()) == set(asset.domain_candidates), (
+            f"Asset {asset.name!r}: domain_scores keys {set(asset.domain_scores)} "
+            f"disagree with domain_candidates {set(asset.domain_candidates)}"
+        )
+        for d, s in asset.domain_scores.items():
+            assert s > 0, f"Asset {asset.name!r} has non-positive score {s} for {d}"
+        scores_in_order = [asset.domain_scores[d] for d in asset.domain_candidates]
+        assert scores_in_order == sorted(scores_in_order, reverse=True), (
+            f"Asset {asset.name!r}: domain_candidates are not sorted by score desc "
+            f"({list(zip(asset.domain_candidates, scores_in_order))})"
+        )
+
+
+# ------------------------------------------------------------------ #
+# Domain scoring — field weights                                       #
+# ------------------------------------------------------------------ #
+
+def test_infer_domains_name_hit_outranks_column_hit():
+    """A domain matching the model name must outrank a domain whose only
+    evidence is a single column — that was the whole point of the weighting."""
+    # 'pricing' keyword hits the name (weight 3.0); 'broker' (distribution) hits only a column (0.5)
+    candidates, scores = _infer_domains(
+        model_name="renewal_pricing_model",
+        description=None,
+        tags=[],
+        column_names=["primary_broker"],
+    )
+    assert candidates[0] == "pricing"
+    assert scores["pricing"] > scores["distribution"]
+    assert scores["pricing"] == pytest.approx(3.0)
+    assert scores["distribution"] == pytest.approx(0.5)
+
+
+def test_infer_domains_saturates_per_field():
+    """Five keyword hits in columns score the same as one — the column field
+    is saturated to prevent wide models from drowning out named signal."""
+    _, scores_one_col = _infer_domains(
+        "m", None, [], ["premium_amount"],
+    )
+    _, scores_many_cols = _infer_domains(
+        "m", None, [], ["premium_amount", "premium_gross", "rate_change", "commission_net", "elr_base"],
+    )
+    assert scores_one_col["pricing"] == scores_many_cols["pricing"] == pytest.approx(0.5)
+
+
+def test_infer_domains_multi_field_hits_stack():
+    """Name hit (3.0) + column hit (0.5) for the same domain should stack to 3.5."""
+    _, scores = _infer_domains(
+        model_name="pricing_model",
+        description=None,
+        tags=[],
+        column_names=["premium_amount"],
+    )
+    assert scores["pricing"] == pytest.approx(3.5)
+
+
+def test_infer_domains_no_hits_returns_empty():
+    candidates, scores = _infer_domains(
+        model_name="zzz_unrelated",
+        description="nothing relevant",
+        tags=[],
+        column_names=["abc", "xyz"],
+    )
+    assert candidates == []
+    assert scores == {}
+
+
+def test_infer_domains_sorted_by_score():
+    """Domains with a higher score sort first."""
+    # 'underwriting' via name (3.0); 'pricing' via column only (0.5)
+    candidates, _ = _infer_domains(
+        model_name="quote_enrichment",
+        description=None,
+        tags=[],
+        column_names=["premium_amt"],
+    )
+    assert candidates == ["underwriting", "pricing"]
+
+
+def test_infer_domains_tiebreaker_rewards_more_keyword_hits():
+    """When two domains saturate the same field (tied score), the one with more
+    distinct keyword hits across all fields must win the tiebreaker."""
+    # Both pricing and underwriting hit the name (score 3.0 each) — tied.
+    # Columns add: pricing gets 3 hits (premium, rate, commission),
+    # underwriting gets 1 (coverage). Same saturated field score (0.5 each),
+    # but pricing has more total evidence → should come first.
+    candidates, scores = _infer_domains(
+        model_name="pricing_quote_summary",
+        description=None,
+        tags=[],
+        column_names=["premium_amt", "rate_base", "commission_pct", "coverage_code"],
+    )
+    assert scores["pricing"] == pytest.approx(3.5)
+    assert scores["underwriting"] == pytest.approx(3.5)
+    assert candidates.index("pricing") < candidates.index("underwriting"), (
+        f"Expected pricing before underwriting on hit-count tiebreaker, got {candidates}"
+    )
+
+
+def test_infer_domains_alphabetical_fallback_on_true_tie():
+    """With identical scores AND identical hit counts, fall back to alphabetical."""
+    # Both pricing and underwriting hit exactly one keyword in the name only.
+    candidates, scores = _infer_domains(
+        model_name="quote_premium",
+        description=None,
+        tags=[],
+        column_names=[],
+    )
+    assert scores["pricing"] == pytest.approx(3.0)
+    assert scores["underwriting"] == pytest.approx(3.0)
+    assert candidates == ["pricing", "underwriting"]
 
 
 # --- column roles ---

@@ -62,7 +62,8 @@ Represents a single data asset: a dbt model, source table, or view.
 | `path` | `Optional[str]` | SQL file path relative to project root |
 | `tags` | `List[str]` | dbt tags (used for product line tagging in Phase 4) |
 | `description` | `Optional[str]` | Asset-level documentation |
-| `domain_candidates` | `List[str]` | Inferred domain labels from keyword scan |
+| `domain_candidates` | `List[str]` | Inferred domain labels, sorted by match-strength score descending (ties broken by total keyword hit count, then alphabetically). See `_infer_domains` in `ingestion/adapters/dbt_metadata.py` and `ontology/domain_keywords.yaml`. |
+| `domain_scores` | `Dict[str, float]` | Raw match-strength score per domain in `domain_candidates`. Field weights: name=3.0, tag=2.0, description=1.0, column=0.5, saturated per field. Consumed by `DomainAssigner` to derive BELONGS_TO_DOMAIN confidence. |
 | `grain_keys` | `List[str]` | Columns identified as grain keys (identifiers) |
 | `is_enabled` | `bool` | Whether the dbt model is enabled |
 | `tag_dimensions` | `Dict[str, List[str]]` | Generalised per-dimension tag classification derived from dbt tags. Keys are dimension names registered in `ontology/tag_mappings.yaml` (e.g. `lineage_layer`, `product_line`). Values are lists of mapped tag values, in tag order, deduplicated. Example: `{"lineage_layer": ["historic_exchange", "conformed_bookends"], "product_line": ["directors_and_officers"]}`. Dimensions with no matching tags are omitted — an empty dict means no dbt tags matched any registered dimension. |
