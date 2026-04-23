@@ -6,7 +6,10 @@ All new nodes and edges are additive; no structural elements are modified.
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
+
+import yaml
 
 from ingestion.contracts.bundle import CanonicalBundle
 from ingestion.normalisation.hashing import stable_hash, utc_now_iso
@@ -17,6 +20,21 @@ from graph.semantic.conformed_binder import ConformedFieldBinder
 from graph.semantic.domain_assigner import DomainAssigner
 from graph.semantic.entity_mapper import EntityMapper
 from graph.semantic.ontology_loader import SynonymRegistry
+
+_ONTOLOGY_DIR = Path(__file__).parent.parent.parent / "ontology"
+
+
+def _load_metric_patterns() -> Dict[str, str]:
+    """Load column-name pattern → metric concept map from ontology YAML."""
+    raw = yaml.safe_load(
+        (_ONTOLOGY_DIR / "metric_patterns.yaml").read_text(encoding="utf-8")
+    )
+    return dict(raw.get("patterns") or {})
+
+
+# Loaded from ontology/metric_patterns.yaml — edit that file to change metric inference.
+# See docs/inputs.md for the matching-priority rules.
+METRIC_NAME_PATTERNS: Dict[str, str] = _load_metric_patterns()
 
 
 def _ev(rule_id: str, confidence: float, build_id: str,
@@ -51,116 +69,11 @@ class SemanticGraphCompiler:
     """Compile semantic layer nodes and edges into an existing graph store."""
 
     # ------------------------------------------------------------------ #
-    # Metric name pattern lookup (Fix 1)                                   #
+    # Metric name pattern lookup                                           #
+    # Patterns loaded from ontology/metric_patterns.yaml at module import. #
     # ------------------------------------------------------------------ #
 
-    METRIC_NAME_PATTERNS: Dict[str, str] = {
-        # Premium family
-        "gnwp":         "net_written_premium",
-        "ggwp":         "gross_written_premium",
-        "tech_gnwp":    "net_written_premium",
-        "modtech_gnwp": "net_written_premium",
-        "sold_gnwp":    "net_written_premium",
-        "tech_ggwp":    "gross_written_premium",
-        "modtech_ggwp": "gross_written_premium",
-        "sold_ggwp":    "gross_written_premium",
-        "premium":      "premium",
-        "elc":          "expected_loss_cost",
-        # Rate change family
-        "rarc":       "risk_adjusted_rate_change",
-        "gross_rarc": "risk_adjusted_rate_change",
-        "net_rarc":   "risk_adjusted_rate_change",
-        "rate_change": "rate_change",
-        "rate_index":  "rate_index",
-        "ny_rate_change": "rate_change",
-        # Loss ratio family
-        "elr":    "expected_loss_ratio",
-        "gg_elr": "expected_loss_ratio",
-        "gn_elr": "expected_loss_ratio",
-        "exp_lr": "expected_loss_ratio",   # summary_exp_lr_calculated
-        # Burn rate (loss development)
-        "burn_rate": "burn_rate",           # burn_rate_incurred/selected/ultimate
-        # Commission / brokerage
-        "commission":    "commission",
-        "brokerage_pct": "brokerage",
-        # Exposure
-        "exposure": "exposure",
-        # Rate monitoring change metrics
-        "claims_inflation":        "claims_inflation",
-        "breadth_of_cover_change": "breadth_of_cover_change",
-        "policy_term_change":      "policy_term_change",
-        "exposure_change":         "exposure_change",
-        # Profitability
-        "sold_to_modtech": "profitability_ratio",
-        "modtech_to_tech": "profitability_ratio",
-        "sold_to_tech":    "profitability_ratio",
-        "sold_to_plan":    "plan_variance",
-        "sold_to_target":  "target_variance",
-        "target_to_plan":  "plan_variance",
-        # Pricing rates
-        "base_rate":      "base_rate",       # hull_base_rate, adverse_weather_base_rate, …
-        "mod_tech_rate":  "model_technical_rate",
-        "tech_rate":      "technical_rate",  # tech_rate, total_hl_tech (avoided by longer key)
-        # Participation / share
-        "our_share_pct":        "participation_pct",   # our_share_pct_london, …
-        "written_pct":          "participation_pct",
-        "order_pct":            "order_pct",           # summary_hl_order_pct, …
-        "london_order_percentage": "order_pct",
-        "written_line":         "written_line",        # summary_hl_written_line, …
-        "signed_line":          "written_line",        # summary_war_signed_line
-        "lead_line":            "written_line",        # summary_war_lead_line
-        # Claims / incurred
-        "claim_count":          "claim_count",
-        "total_incurred":       "incurred_loss",
-        # Loading / discount
-        "loading_discount":     "loading_discount",
-        "relativity_value":     "relativity",
-        # Fees
-        "lead_fee":             "lead_fee",            # summary_hl_lead_fee, summary_war_lead_fee
-        "hl_brokerage":         "brokerage",           # summary_hl_brokerage
-        # Limits (insurance coverage limits)
-        "hull_limit":           "limit",               # summary_hull_limit
-        "pll_limit":            "limit",               # summary_pll_limit
-        "tpl_limit":            "limit",               # summary_tpl_limit
-        "agg_limit":            "limit",               # summary_war_agg_limit
-        "conf_limit":           "limit",               # summary_war_conf_limit
-        "war_limit":            "limit",               # summary_war_*limit pattern
-        # Actual rates
-        "actual_rate":          "actual_rate",         # hull_actual_rate, war_actual_rate
-        # Hull / marine values
-        "hull_value":           "hull_value",          # hull_value, hull_value_ccy/mod/usd
-        "hull_total":           "hull_total_premium",  # hull_total, hull_total_tech_mod/uw_mod
-        "insured_value":        "insured_value",
-        # Technical / model-technical premium totals
-        "total_mod_tech":       "model_technical_premium",  # total_mod_tech, total_hl_mod_tech, …
-        "pll_total_tech_mod":   "model_technical_premium",
-        "tpl_total_tech_mod":   "model_technical_premium",
-        "total_pol_ccy_mod_tech": "model_technical_premium",
-        "total_usd_mod_tech":   "model_technical_premium",
-        "total_pol_ccy_tech":   "technical_premium",
-        "total_pol_ccy_excl_lead": "technical_premium",
-        "total_pol_ccy_incl_lead": "technical_premium",
-        "total_usd_tech":       "technical_premium",
-        "total_usd_excl_lead":  "technical_premium",
-        "total_usd_incl_lead":  "technical_premium",
-        "total_hl_tech":        "technical_premium",
-        "total_tech":           "technical_premium",   # also prefix: total_tech_loss_cost_*
-        "total_hl_mod_tech":    "model_technical_premium",
-        "pll_total_uw_mod":     "model_technical_premium",
-        "tpl_total_uw_mod":     "model_technical_premium",
-        # Loss cost
-        "total_tech_loss_cost":     "technical_loss_cost",      # total_tech_loss_cost_ccy/usd
-        "total_mod_tech_loss_cost": "model_technical_loss_cost",
-        # Deductible / excess / limit (policy terms)
-        "deductible":    "deductible",   # deductible_value, summary_deductible
-        "excess":        "excess",       # summary_excess
-        "summary_limit": "limit",        # exact
-        "lsm_share":     "lsm_share",    # summary_lsm_share
-        # Operational percentages (catastrophe accumulation)
-        "cat_ap":        "cat_accumulation",  # total_cat_ap
-        # Rate monitoring
-        "pct_layer_rate": "layer_rate",
-    }
+    METRIC_NAME_PATTERNS: Dict[str, str] = METRIC_NAME_PATTERNS
 
     # Pre-sort keys longest-first so more-specific patterns win
     _SORTED_PATTERN_KEYS: List[str] = sorted(

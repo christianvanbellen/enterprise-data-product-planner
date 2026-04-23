@@ -1,0 +1,143 @@
+# metric_patterns.yaml — column-name pattern → metric concept (Phase 3)
+#
+# Read by: SemanticGraphCompiler at module load.
+# Effect: each column name is tested against these patterns in priority order
+#         (exact match first, then longest-key suffix/prefix/interior). Matches
+#         produce MEASURES edges from the Column to a MetricNode carrying the
+#         mapped concept. See _infer_metric_concept in graph/semantic/compiler.py.
+#
+# Matching priority per column:
+#   1. Exact match on col_name
+#   2. Longest-first token-boundary match: col_name ends with `_<key>`,
+#      starts with `<key>_`, or contains `_<key>_`
+#
+# Keep keys lowercase. Prefer more-specific keys (`modtech_gnwp`) over
+# less-specific (`gnwp`); both can coexist — the longer key wins because
+# _SORTED_PATTERN_KEYS orders by length descending.
+
+patterns:
+  # ── Premium family ──────────────────────────────────────────────────
+  gnwp:                    net_written_premium
+  ggwp:                    gross_written_premium
+  tech_gnwp:               net_written_premium
+  modtech_gnwp:            net_written_premium
+  sold_gnwp:               net_written_premium
+  tech_ggwp:               gross_written_premium
+  modtech_ggwp:            gross_written_premium
+  sold_ggwp:               gross_written_premium
+  premium:                 premium
+  elc:                     expected_loss_cost
+
+  # ── Rate change family ──────────────────────────────────────────────
+  rarc:                    risk_adjusted_rate_change
+  gross_rarc:              risk_adjusted_rate_change
+  net_rarc:                risk_adjusted_rate_change
+  rate_change:             rate_change
+  rate_index:              rate_index
+  ny_rate_change:          rate_change
+
+  # ── Loss ratio family ───────────────────────────────────────────────
+  elr:                     expected_loss_ratio
+  gg_elr:                  expected_loss_ratio
+  gn_elr:                  expected_loss_ratio
+  exp_lr:                  expected_loss_ratio    # summary_exp_lr_calculated
+
+  # ── Burn rate (loss development) ────────────────────────────────────
+  burn_rate:               burn_rate              # burn_rate_incurred/selected/ultimate
+
+  # ── Commission / brokerage ──────────────────────────────────────────
+  commission:              commission
+  brokerage_pct:           brokerage
+
+  # ── Exposure ────────────────────────────────────────────────────────
+  exposure:                exposure
+
+  # ── Rate-monitoring change metrics ──────────────────────────────────
+  claims_inflation:        claims_inflation
+  breadth_of_cover_change: breadth_of_cover_change
+  policy_term_change:      policy_term_change
+  exposure_change:         exposure_change
+
+  # ── Profitability / plan variance ───────────────────────────────────
+  sold_to_modtech:         profitability_ratio
+  modtech_to_tech:         profitability_ratio
+  sold_to_tech:            profitability_ratio
+  sold_to_plan:            plan_variance
+  sold_to_target:          target_variance
+  target_to_plan:          plan_variance
+
+  # ── Pricing rates ───────────────────────────────────────────────────
+  base_rate:               base_rate              # hull_base_rate, adverse_weather_base_rate, …
+  mod_tech_rate:           model_technical_rate
+  tech_rate:               technical_rate         # avoided by longer key total_tech
+
+  # ── Participation / share ───────────────────────────────────────────
+  our_share_pct:           participation_pct      # our_share_pct_london, …
+  written_pct:             participation_pct
+  order_pct:               order_pct              # summary_hl_order_pct, …
+  london_order_percentage: order_pct
+  written_line:            written_line           # summary_hl_written_line, …
+  signed_line:             written_line           # summary_war_signed_line
+  lead_line:               written_line           # summary_war_lead_line
+
+  # ── Claims / incurred ───────────────────────────────────────────────
+  claim_count:             claim_count
+  total_incurred:          incurred_loss
+
+  # ── Loading / discount ──────────────────────────────────────────────
+  loading_discount:        loading_discount
+  relativity_value:        relativity
+
+  # ── Fees ────────────────────────────────────────────────────────────
+  lead_fee:                lead_fee               # summary_hl_lead_fee, summary_war_lead_fee
+  hl_brokerage:            brokerage              # summary_hl_brokerage
+
+  # ── Limits (insurance coverage limits) ──────────────────────────────
+  hull_limit:              limit                  # summary_hull_limit
+  pll_limit:               limit                  # summary_pll_limit
+  tpl_limit:               limit                  # summary_tpl_limit
+  agg_limit:               limit                  # summary_war_agg_limit
+  conf_limit:              limit                  # summary_war_conf_limit
+  war_limit:               limit                  # summary_war_*limit pattern
+  summary_limit:           limit                  # exact
+
+  # ── Actual rates ────────────────────────────────────────────────────
+  actual_rate:             actual_rate            # hull_actual_rate, war_actual_rate
+
+  # ── Hull / marine values ────────────────────────────────────────────
+  hull_value:              hull_value             # hull_value, hull_value_ccy/mod/usd
+  hull_total:              hull_total_premium     # hull_total, hull_total_tech_mod/uw_mod
+  insured_value:           insured_value
+
+  # ── Technical / model-technical premium totals ─────────────────────
+  total_mod_tech:          model_technical_premium   # total_mod_tech, total_hl_mod_tech, …
+  pll_total_tech_mod:      model_technical_premium
+  tpl_total_tech_mod:      model_technical_premium
+  total_pol_ccy_mod_tech:  model_technical_premium
+  total_usd_mod_tech:      model_technical_premium
+  total_hl_mod_tech:       model_technical_premium
+  pll_total_uw_mod:        model_technical_premium
+  tpl_total_uw_mod:        model_technical_premium
+  total_pol_ccy_tech:      technical_premium
+  total_pol_ccy_excl_lead: technical_premium
+  total_pol_ccy_incl_lead: technical_premium
+  total_usd_tech:          technical_premium
+  total_usd_excl_lead:     technical_premium
+  total_usd_incl_lead:     technical_premium
+  total_hl_tech:           technical_premium
+  total_tech:              technical_premium      # also prefix: total_tech_loss_cost_*
+
+  # ── Loss cost ───────────────────────────────────────────────────────
+  total_tech_loss_cost:        technical_loss_cost         # total_tech_loss_cost_ccy/usd
+  total_mod_tech_loss_cost:    model_technical_loss_cost
+
+  # ── Policy-term measures (deductible / excess / LSM share) ─────────
+  deductible:              deductible             # deductible_value, summary_deductible
+  excess:                  excess                 # summary_excess
+  lsm_share:               lsm_share              # summary_lsm_share
+
+  # ── Catastrophe / accumulation ──────────────────────────────────────
+  cat_ap:                  cat_accumulation       # total_cat_ap
+
+  # ── Rate monitoring ─────────────────────────────────────────────────
+  pct_layer_rate:          layer_rate

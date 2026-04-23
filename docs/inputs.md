@@ -54,7 +54,7 @@ EXTERNAL DATA INPUTS                          ONTOLOGY CONFIGURATION
 | Change to | Re-run from | LLM cost |
 |-----------|-------------|----------|
 | `dbt_metadata_enriched.json` / `conformed_schema.json` / `tag_mappings.yaml` / `domain_keywords.yaml` / `semantic_map.yaml` / `grain_keys.yaml` | Phase 1 → 5 | Yes (Phase 5 re-render) |
-| `entity_groups.yaml` / `insurance_entities.yaml` | Phase 3 → 5 | Yes (Phase 5 re-render) |
+| `entity_groups.yaml` / `insurance_entities.yaml` / `metric_patterns.yaml` | Phase 3 → 5 | Yes (Phase 5 re-render) |
 | `initiative_research.yaml` / `primitives.yaml` | Phase 4 → 5 | Yes (Phase 5 re-render) |
 | `delivery_heuristics.yaml` | Phase 5 only with `--force-render` | No (pre-rendered section) |
 | `_SYSTEM_PROMPT` in `renderer.py` | Phase 5 only with `--force-render` | Yes |
@@ -348,6 +348,40 @@ This is the highest-impact single edit in the pipeline.
 
 ---
 
+### `ontology/metric_patterns.yaml` *(migrated April 2026)*
+
+**Read by:** `SemanticGraphCompiler` at module load (Phase 3)
+
+**What it controls:** Column-name → metric-concept map used to emit `MEASURES`
+edges from `Column` nodes to `MetricNode`s. Any column whose normalised name
+matches a pattern here becomes an instance of the mapped metric concept (e.g.
+`tech_gnwp_usd` → `net_written_premium`).
+
+**Matching priority per column:**
+1. Exact match on `col_name`.
+2. Longest-first token-boundary match: `col_name` ends with `_<key>`, starts
+   with `<key>_`, or contains `_<key>_`. Longer keys win over shorter ones, so
+   `modtech_gnwp` can coexist with `gnwp` — the more specific pattern is tried
+   first.
+
+**Format:** `{ pattern: concept_name }` as a flat map under a top-level
+`patterns:` key. Comment groupings (Premium family, Rate-change family, …) are
+purely documentation aids; they do not affect matching.
+
+**Effect of changes:**
+- Adding a pattern → columns matching it gain `MEASURES` edges and a `MetricNode`
+  is created if none yet exists for the concept.
+- Removing a pattern → existing columns using that pattern lose their metric
+  binding. The `MetricNode` itself is only removed if no other column still
+  maps to it.
+- Changing the concept name on an existing pattern → the old `MetricNode` may
+  become orphaned and a new one is created. Re-run Phase 3 end-to-end.
+
+See `_infer_metric_concept` in `graph/semantic/compiler.py` for the matching
+implementation.
+
+---
+
 ### `ontology/initiative_research.yaml` *(expanded April 2026 — now contains full initiative definitions)*
 
 **Read by:** `InitiativeArchetypeLibrary` at module load (Phases 4 and 5)
@@ -542,6 +576,7 @@ edit for changing spec style, tone, or section content across the full portfolio
 | `grain_keys.yaml` | ✓ | DbtMetadataAdapter | 1 |
 | `insurance_entities.yaml` | ✓ | OntologyLoader | 3 |
 | `entity_groups.yaml` | ✓ | ConformedFieldBinder | 3 |
+| `metric_patterns.yaml` | ✓ | SemanticGraphCompiler | 3 |
 | `initiative_research.yaml` | ✓ | InitiativeArchetypeLibrary | 4, 5 |
 | `primitives.yaml` | ✓ | CapabilityPrimitiveExtractor | 4 |
 | `delivery_heuristics.yaml` | ✓ | SpecRenderer | 5 |
