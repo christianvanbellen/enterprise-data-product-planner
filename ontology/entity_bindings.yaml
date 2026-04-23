@@ -23,16 +23,32 @@
 # team which business concepts the pipeline is expected to recognise but
 # can't see yet. Do not remove an entity just because it's empty today.
 
+# Last reviewed against: research_log/entity_model/v1_2026-04-23_fab12dbc.md
+# Reference framework:   reference_frameworks/commercial_specialty_pc.md (synthesised —
+#                        re-curate against an authoritative internal source when available).
+#
+# Open questions from v1 deferred to future iterations (see research brief):
+#   Q1  `quote` vs `policy` distinctness — kept both conservatively; `policy` may be
+#       collapsible if the warehouse doesn't materialise a separate policy entity.
+#   Q7  `policy_totals` still maps to `policy`; revisit if a `policy_financials`
+#       entity is warranted.
+#   Q8  `signal_2_scale: 0.8` retained; revisit after measuring audit impact of the
+#       tightened signatures.
+
 entities:
   - policyholder
   - broker
   - claim
   - coverage
   - policy
+  - quote                   # v1 added — quote_id is the warehouse bus key
+  - layer                   # v1 added — binds *_layer / *_layer_pricing families
   - pricing_component
   - profitability_component
   - exposure
-  - underwriter
+  - underwriter             # v1 suggested removal; kept as a gap-aware signal
+                            # — the empty audit row surfaces the missing UW-
+                            # identity data to the data team.
 
 # ──────────────────────────────────────────────────────────────────────────
 # Confidence weights
@@ -74,43 +90,67 @@ conformed_group_to_entity:
 # tag dimension); it does not have a column signature.
 
 entity_signatures:
+
   policy:
-    - policy_id
-    - policy_number
-    - policy_currency
-    - policy_term
-    - policy_reference
+    # Slimmed down after v1 audit — policy_id / policy_number / policy_currency /
+    # policy_term / policy_reference were all dead. This warehouse keys policies
+    # off quote_id + pas_id (see `quote` entity) rather than a standalone policy
+    # identifier. Retain the temporal columns as policy carries those.
+    - policy_is_quoted
+    - inception_date
+    - expiry_date
+    - new_renewal
+    - policy_term_change
+
+  quote:
+    # v1 addition. `quote_id` is the bus key of the warehouse but appears on
+    # ~every fact table, so it's excluded from the signature — it wouldn't
+    # discriminate quote-shaped assets from anything else. The signature
+    # below picks the narrower columns that co-occur on true quote artefacts;
+    # the asset-name pattern `quote` rescues the rest.
+    - pas_id
+    - yoa
+    - uw_adjustment
+    - uw_comment
 
   coverage:
-    - coverage_id
+    # coverage_id and coverage_type were dead — v1 flagged coverage_type as
+    # possibly conflated with exposure_type during normalisation (Q3 open).
+    # Retaining the terms-negotiated columns that clearly belong to coverage.
+    - coverage
     - primary_coverage
-    - coverage_type
     - limit
     - excess
     - deductible_value
     - section
 
+  layer:
+    # v1 addition. Binds *_layers, *_layer_pricing, ClaimLayersView,
+    # RMCoverageLayerView, contingency_layers, do_expiring_layers,
+    # hx_fi_layer_pricing. Asset-name pattern `layer` rescues assets that
+    # have fewer than 2 of these signature columns.
+    - layer_id
+    - layer_limit
+    - limit_type
+
   policyholder:
+    # inception_date / expiry_date moved to `policy` (they describe the contract,
+    # not the insured). Dead columns (insured_name, policyholder_id) removed.
     - policyholder_name
-    - policyholder_id
-    - insured_name
     - entity
     - branch
-    - new_renewal
-    - inception_date
-    - expiry_date
+    - main_domicile
+    - country
 
   broker:
-    - broker_id
-    - broker_name
+    # Trimmed to the two columns that actually appear. Asset-name pattern
+    # (`brokerage` → broker) rescues broker binding where the signature is thin.
     - broker_primary
     - brokerage_pct
-    - broker_code
-    - broker_group
-    - broker_pseudo_code
-    - coverholder
 
   claim:
+    # Trimmed to real high-signal columns. Removed dead: fgu_incurred_loss,
+    # paid_claims, number_claims (verify after next audit).
     - incurred
     - paid
     - reserved
@@ -122,37 +162,59 @@ entity_signatures:
     - gnlr_incurred
     - loss_cost_inflation
     - claim_count
-    - fgu_incurred_loss
     - total_incurred
     - incurred_excl_specific
-    - paid_claims
-    - number_claims
 
   underwriter:
+    # Gap-aware signature — all columns below are ASPIRATIONAL. None exist in
+    # the current warehouse; expected 0 candidacy. The empty audit row is the
+    # point: it makes UW-identity data a visible backlog item for the data team
+    # to ingest (typically from an HR/CRM-adjacent system).
     - underwriter
     - underwriter_id
+    - underwriter_name
+    - underwriter_team
+    - uw_name
+    - uw_team
 
   pricing_component:
-    - premium
-    - rate
-    - elr
+    # Major rewrite per v1. The dead `premium`, `rate`, `elr` entries never
+    # matched as exact normalised-column names — they appear in compound forms
+    # (gross_premium, tech_rate, gg_elr) and so need to be listed explicitly.
     - tech_gnwp
     - modtech_gnwp
-    - ggwp
-    - gnwp
-    - sold_ggwp
     - sold_gnwp
+    - sold_ggwp
+    - tech_ggwp
+    - modtech_ggwp
+    - tech_elc
+    - modtech_elc
+    - gross_rarc
+    - net_rarc
+    - rate_change
+    - base_rate
+    - tech_rate
+    - mod_tech_rate
+    - input_premium
+    - gross_premium
 
   profitability_component:
+    # Removed dead `profitability` (never a literal column name). sold_to_plan
+    # is known absent (documented data gap) — not added.
     - commission
-    - profitability
     - sold_to_tech
     - sold_to_modtech
+    - modtech_to_tech
     - change_in_sold_to_tech
     - change_in_sold_to_modtech
+    - target_to_plan
 
   exposure:
+    # Tightened to the most discriminating columns — the widened v1 signature
+    # diluted scores below threshold. Asset-name pattern `exposure` rescues
+    # exposure-shaped assets that only have one of these.
     - exposure
+    - exposure_measure
     - exposure_type
     - expiring_exposure
 
@@ -185,8 +247,13 @@ entity_signatures:
 # column coverage.
 
 asset_name_patterns:
-  claim:     claim
-  brokerage: broker
+  claim:         claim
+  brokerage:     broker
+  quote:         quote        # v1 rescue — broadest quote-asset catcher
+  layer:         layer        # v1 rescue — catches *_layers, *_layer_pricing
+  exposure:      exposure     # v1 rescue — catches *_exposure_*, fleet, regional
+  policyholder:  policyholder # rescue for *_policyholder_* and insured assets
+  broker:        broker       # rescue — broker signature is intentionally thin
 
 # ──────────────────────────────────────────────────────────────────────────
 # Column synonyms (reference lookup, currently not wired into the pipeline)

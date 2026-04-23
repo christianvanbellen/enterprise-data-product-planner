@@ -9,13 +9,16 @@ from graph.semantic.ontology_loader import SynonymRegistry
 # ------------------------------------------------------------------ #
 
 def test_allowed_entities_contains_all_current():
-    """After the April 2026 entity review, line_of_business was removed when
-    Signal 3 (tag-dimension entity binding) was dropped — product-line is a
-    classification, not a business noun. The current whitelist is 9 entities."""
+    """After the April 2026 entity-research curation, the whitelist is 11
+    entities: the 9 from the previous pass plus `quote` (warehouse bus key)
+    and `layer` (specialty-pricing unit). `underwriter` is kept despite
+    having zero warehouse signal — a declared-but-empty entity produces a
+    `0 candidacy` audit row, which is the gap-aware backlog signal."""
     entities = SynonymRegistry.allowed_entities()
     expected = {
         "policyholder", "broker", "claim",
-        "coverage", "policy", "pricing_component", "profitability_component",
+        "coverage", "policy", "quote", "layer",
+        "pricing_component", "profitability_component",
         "exposure", "underwriter",
     }
     assert expected == set(entities), (
@@ -32,8 +35,14 @@ def test_line_of_business_no_longer_an_allowed_entity():
     assert "line_of_business" not in SynonymRegistry.allowed_entities()
 
 
-def test_allowed_entities_does_not_contain_quote():
-    assert "quote" not in SynonymRegistry.allowed_entities()
+def test_allowed_entities_contains_quote():
+    """`quote` was added in the v1 entity-research curation."""
+    assert "quote" in SynonymRegistry.allowed_entities()
+
+
+def test_allowed_entities_contains_layer():
+    """`layer` was added in the v1 entity-research curation."""
+    assert "layer" in SynonymRegistry.allowed_entities()
 
 
 def test_allowed_entities_does_not_contain_jurisdiction():
