@@ -65,8 +65,7 @@ Represents a single data asset: a dbt model, source table, or view.
 | `domain_candidates` | `List[str]` | Inferred domain labels from keyword scan |
 | `grain_keys` | `List[str]` | Columns identified as grain keys (identifiers) |
 | `is_enabled` | `bool` | Whether the dbt model is enabled |
-| `lineage_layers` | `List[str]` | All inferred layer tags from the model's dbt tags, in tag order, deduplicated. Example: `["historic_exchange", "conformed_bookends"]`. Empty list when no tags match the registry. |
-| `product_lines` | `List[str]` | Inferred product line tags: `eupi`, `d_o`, `general_aviation`, etc. |
+| `tag_dimensions` | `Dict[str, List[str]]` | Generalised per-dimension tag classification derived from dbt tags. Keys are dimension names registered in `ontology/tag_mappings.yaml` (e.g. `lineage_layer`, `product_line`). Values are lists of mapped tag values, in tag order, deduplicated. Example: `{"lineage_layer": ["historic_exchange", "conformed_bookends"], "product_line": ["directors_and_officers"]}`. Dimensions with no matching tags are omitted — an empty dict means no dbt tags matched any registered dimension. |
 | `upstream_dependents` | `int` | Count of DEPENDS_ON edges pointing to this asset (populated in Phase 2) |
 | `version_hash` | `str` | Stable hash of the source entity JSON |
 | `provenance` | `Provenance` | Source system attribution record |

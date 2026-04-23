@@ -5,6 +5,55 @@ Open items, known limitations, and deferred work. Items are grouped by phase and
 
 ---
 
+## Generalised tag dimensions [DONE — April 2026]
+
+Refactored the two hardcoded dimensional fields on `CanonicalAsset`
+(`lineage_layers: List[str]` and `product_lines: List[str]`) into a single
+`tag_dimensions: Dict[str, List[str]]` carrying arbitrarily-named dimensions.
+
+**Motivation.** The previous shape hardcoded the assumption that the pipeline would
+ever only need two dimensions — warehouse-architecture-layer and business-line-of-
+business. A new project with different dimensions (region, business unit, regulatory
+jurisdiction, etc.) would have required Pydantic model changes, adapter helper
+duplication, and downstream consumer edits. Every new dimension was a Python PR.
+
+**New shape.** `ontology/tag_mappings.yaml` is now structured as:
+
+```yaml
+dimensions:
+  <dimension_name>:
+    description: "..."
+    tag_mappings: { raw_tag: mapped_value, ... }
+    entity_bindings: { mapped_value: entity_label, ... }    # optional
+```
+
+Each dimension is self-contained. Adding a new one is a pure YAML edit — `DbtMetadataAdapter`
+iterates every registered dimension at module load and classifies each asset's tags into
+the resulting dict. Consumers access a specific dimension via
+`asset.tag_dimensions.get("<dim>", [])`.
+
+**Consumer updates.**
+- `_infer_table_type` (assembler.py) reads `asset.tag_dimensions.get("lineage_layer", [])`
+  and keeps project-specific `_LAYER_TO_TYPE` and gen2_mart refinement in Python (marked
+  as Liberty-specific)
+- `primitive_extractor.py` adds `required_tag_dimension` to primitive definitions so a
+  primitive explicitly declares which dimension its `required_tags` match against
+- `entity_mapper.py` loads a `DIMENSION_ENTITY_BINDINGS` dict of `{dim_name: {value: entity}}`
+  from YAML and iterates every dimension's bindings for Signal 3
+- `ontology/primitives.yaml` adds `required_tag_dimension: product_line` to
+  `product_line_segmentation`
+- `graph/schema/nodes.py::from_asset` stores `tag_dimensions` as a single property
+
+**Behavioural equivalence.** No change in pipeline outputs — same 207 assets, same spec
+counts, same primitive maturity scores, same composite rankings. Only the internal shape
+changed.
+
+**Tests.** 322 → 320 (consolidated redundant per-dimension tests into a single combined
+test; added `test_tag_dimensions_populates_both_dimensions_from_mixed_tags` and
+`test_dimension_entity_bindings_loaded_from_yaml`).
+
+---
+
 ## TAG_TO_ENTITY migrated to tag_mappings.yaml [DONE — April 2026]
 
 Previously the `TAG_TO_ENTITY` dict in `graph/semantic/entity_mapper.py` hardcoded the

@@ -288,7 +288,7 @@ def test_detect_minimal_sample_is_compatible():
 
 
 # ------------------------------------------------------------------ #
-# product_lines and lineage_layer fields                               #
+# tag_dimensions field                                                 #
 # ------------------------------------------------------------------ #
 
 def _make_entity_file(tmp_path, tags):
@@ -307,94 +307,91 @@ def _make_entity_file(tmp_path, tags):
     return f
 
 
-def test_product_lines_eupi_tag(tmp_path):
-    """Tag 'eupi' must map to product_line 'european_professional_indemnity'."""
+def test_product_line_tag_maps_to_dimension(tmp_path):
+    """Tag 'eupi' populates tag_dimensions['product_line'] with the mapped value."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["eupi"]))
-    assert bundle.assets[0].product_lines == ["european_professional_indemnity"]
+    assert bundle.assets[0].tag_dimensions.get("product_line") == ["european_professional_indemnity"]
 
 
-def test_product_lines_do_tag(tmp_path):
-    """Tag 'd_o' must map to product_line 'directors_and_officers'."""
+def test_product_line_do_tag(tmp_path):
+    """Tag 'd_o' maps to product_line 'directors_and_officers' in tag_dimensions."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["d_o"]))
-    assert bundle.assets[0].product_lines == ["directors_and_officers"]
+    assert bundle.assets[0].tag_dimensions.get("product_line") == ["directors_and_officers"]
 
 
-def test_product_lines_no_match(tmp_path):
-    """Tags with no mapping must produce empty product_lines."""
+def test_unmapped_tags_produce_no_dimension_entries(tmp_path):
+    """Tags with no mapping must not create dimension entries at all."""
     adapter = DbtMetadataAdapter()
-    bundle = adapter.parse_file(_make_entity_file(tmp_path, ["raw", "quotes"]))
-    assert bundle.assets[0].product_lines == []
+    bundle = adapter.parse_file(_make_entity_file(tmp_path, ["quotes"]))
+    assert bundle.assets[0].tag_dimensions == {}
 
 
-def test_lineage_layers_hx_tag(tmp_path):
-    """Tag 'HX' must map to lineage_layers ['historic_exchange']."""
+def test_lineage_layer_hx_tag(tmp_path):
+    """Tag 'HX' populates tag_dimensions['lineage_layer'] with 'historic_exchange'."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX"]))
-    assert bundle.assets[0].lineage_layers == ["historic_exchange"]
+    assert bundle.assets[0].tag_dimensions.get("lineage_layer") == ["historic_exchange"]
 
 
-def test_lineage_layers_ll_tag(tmp_path):
-    """Tag 'LL' must map to lineage_layers ['liberty_link']."""
+def test_lineage_layer_ll_tag(tmp_path):
+    """Tag 'LL' maps to lineage_layer 'liberty_link'."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["LL"]))
-    assert bundle.assets[0].lineage_layers == ["liberty_link"]
+    assert bundle.assets[0].tag_dimensions.get("lineage_layer") == ["liberty_link"]
 
 
-def test_lineage_layers_no_match(tmp_path):
-    """Tags with no layer mapping must produce empty lineage_layers."""
-    adapter = DbtMetadataAdapter()
-    bundle = adapter.parse_file(_make_entity_file(tmp_path, ["eupi"]))
-    assert bundle.assets[0].lineage_layers == []
-
-
-def test_lineage_layers_preserves_order(tmp_path):
-    """When multiple layer tags are present, all are recorded in tag order."""
+def test_lineage_layer_preserves_order(tmp_path):
+    """Multiple lineage-layer tags are recorded in tag order under the dimension."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "LL"]))
-    assert bundle.assets[0].lineage_layers == ["historic_exchange", "liberty_link"]
+    assert bundle.assets[0].tag_dimensions.get("lineage_layer") == ["historic_exchange", "liberty_link"]
 
 
-def test_lineage_layers_preserves_conformance_tags(tmp_path):
-    """Secondary tags like 'bookends' and 'semi_conformed' are no longer lost."""
+def test_lineage_layer_preserves_conformance_tags(tmp_path):
+    """Secondary tags like 'bookends' are not lost — both dimensions coexist."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "bookends"]))
-    assert bundle.assets[0].lineage_layers == ["historic_exchange", "conformed_bookends"]
+    assert bundle.assets[0].tag_dimensions.get("lineage_layer") == [
+        "historic_exchange", "conformed_bookends"
+    ]
 
 
-def test_lineage_layers_deduplicates(tmp_path):
-    """Duplicate tags producing the same layer must be deduplicated."""
+def test_lineage_layer_deduplicates(tmp_path):
+    """Duplicate tags producing the same value must be deduplicated within the dimension."""
     adapter = DbtMetadataAdapter()
     bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "hx"]))
-    assert bundle.assets[0].lineage_layers == ["historic_exchange"]
+    assert bundle.assets[0].tag_dimensions.get("lineage_layer") == ["historic_exchange"]
 
 
-def test_golden_product_lines_non_empty(golden_bundle):
-    """At least some golden assets must have product_lines populated."""
-    assets_with_pl = [a for a in golden_bundle.assets if a.product_lines]
-    assert assets_with_pl, "Expected at least one asset with product_lines from golden data"
+def test_tag_dimensions_populates_both_dimensions_from_mixed_tags(tmp_path):
+    """A single tag list classified across multiple dimensions produces one entry per
+    dimension. Tags unmapped in both dimensions are ignored."""
+    adapter = DbtMetadataAdapter()
+    bundle = adapter.parse_file(_make_entity_file(tmp_path, ["HX", "bookends", "d_o", "quotes"]))
+    td = bundle.assets[0].tag_dimensions
+    assert td.get("lineage_layer") == ["historic_exchange", "conformed_bookends"]
+    assert td.get("product_line") == ["directors_and_officers"]
 
 
-def test_golden_lineage_layers_non_empty(golden_bundle):
-    """At least some golden assets must have lineage_layers populated."""
-    assets_with_ll = [a for a in golden_bundle.assets if a.lineage_layers]
-    assert assets_with_ll, "Expected at least one asset with lineage_layers from golden data"
+def test_golden_tag_dimensions_non_empty(golden_bundle):
+    """At least some golden assets must have tag_dimensions populated."""
+    assets_with_dims = [a for a in golden_bundle.assets if a.tag_dimensions]
+    assert assets_with_dims, "Expected at least one asset with tag_dimensions from golden data"
 
 
-def test_golden_product_lines_values_are_strings(golden_bundle):
-    """All product_lines values must be non-empty strings."""
+def test_golden_tag_dimensions_values_are_strings(golden_bundle):
+    """Every tag_dimensions entry must be a non-empty list of non-empty strings."""
     for asset in golden_bundle.assets:
-        for pl in asset.product_lines:
-            assert isinstance(pl, str) and pl, (
-                f"Asset {asset.name!r} has invalid product_line value: {pl!r}"
+        for dim_name, values in asset.tag_dimensions.items():
+            assert isinstance(dim_name, str) and dim_name, (
+                f"Asset {asset.name!r}: dimension key {dim_name!r} must be a non-empty string"
             )
-
-
-def test_golden_lineage_layers_values_are_strings(golden_bundle):
-    """Every lineage_layers entry must be a non-empty string."""
-    for asset in golden_bundle.assets:
-        for layer in asset.lineage_layers:
-            assert isinstance(layer, str) and layer, (
-                f"Asset {asset.name!r} has invalid lineage_layers entry: {layer!r}"
+            assert isinstance(values, list) and values, (
+                f"Asset {asset.name!r}: values for dimension {dim_name!r} must be a non-empty list"
             )
+            for v in values:
+                assert isinstance(v, str) and v, (
+                    f"Asset {asset.name!r}: invalid value in dimension {dim_name!r}: {v!r}"
+                )

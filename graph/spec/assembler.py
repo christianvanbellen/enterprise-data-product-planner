@@ -606,14 +606,18 @@ class SpecAssembler:
 
         Returns one of: "fact" | "dimension" | "bridge" | "snapshot" | "source" | "unknown"
         """
-        # Signal 1 — lineage layer direct mapping (scans ALL layer tags, not just first)
+        # Signal 1 — lineage layer direct mapping (scans ALL values for the dimension,
+        # not just first). The _LAYER_TO_TYPE dict and the dimension name below are
+        # project-specific heuristics for the Liberty warehouse — a different warehouse
+        # would need its own layer-to-type mapping.
         _LAYER_TO_TYPE: Dict[str, str] = {
             "source_table":      "source",
             "raw_layer":         "source",
             "historic_exchange": "snapshot",
         }
+        lineage_layers = asset.tag_dimensions.get("lineage_layer", [])
         signal1: Optional[str] = None
-        for layer in asset.lineage_layers:
+        for layer in lineage_layers:
             if layer in _LAYER_TO_TYPE:
                 signal1 = _LAYER_TO_TYPE[layer]
                 break
@@ -652,10 +656,11 @@ class SpecAssembler:
         if signal1 is not None:
             return signal1
 
-        # Signal 4 — lineage-layer refinement for mart layers
+        # Signal 4 — lineage-layer refinement for mart layers (project-specific).
         # gen2_mart tables lean toward "fact"; override only when dim_ratio is not
-        # strongly in the dimension direction (< 0.6).
-        if "gen2_mart" in asset.lineage_layers:
+        # strongly in the dimension direction (< 0.6). Encodes Liberty-specific domain
+        # knowledge — another warehouse would need its own mart refinement rule.
+        if "gen2_mart" in lineage_layers:
             if composition_signal == "dimension" and dim_ratio < 0.6:
                 composition_signal = "fact"
 

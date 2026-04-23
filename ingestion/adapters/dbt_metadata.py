@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------ #
 
 _ONTOLOGY_DIR = Path(__file__).parent.parent.parent / "ontology"
-_TAG_TO_PRODUCT_LINE: Dict[str, str] = {}
-_TAG_TO_LINEAGE_LAYER: Dict[str, str] = {}
+
+# Dict of {dimension_name: {raw_tag: mapped_value}} loaded from tag_mappings.yaml.
+# Example: {"lineage_layer": {"hx": "historic_exchange", ...}, "product_line": {...}}
+_DIMENSION_TAG_MAPPINGS: Dict[str, Dict[str, str]] = {}
+
 DOMAIN_KEYWORDS: Dict[str, List[str]] = {}
 GRAIN_KEY_CANDIDATES: set = set()
 SEMANTIC_MAP: Dict[str, str] = {}
@@ -30,9 +33,11 @@ SEMANTIC_MAP: Dict[str, str] = {}
 try:
     import yaml  # type: ignore
 
+    # Loaded from ontology/tag_mappings.yaml. Each dimension's tag_mappings becomes an
+    # entry in _DIMENSION_TAG_MAPPINGS keyed by dimension name.
     _raw_mappings = yaml.safe_load((_ONTOLOGY_DIR / "tag_mappings.yaml").read_text(encoding="utf-8"))
-    _TAG_TO_PRODUCT_LINE  = _raw_mappings.get("tag_to_product_line", {})
-    _TAG_TO_LINEAGE_LAYER = _raw_mappings.get("tag_to_lineage_layer", {})
+    for _dim_name, _dim_spec in (_raw_mappings.get("dimensions") or {}).items():
+        _DIMENSION_TAG_MAPPINGS[_dim_name] = dict((_dim_spec or {}).get("tag_mappings") or {})
 
     # Loaded from ontology/domain_keywords.yaml — edit that file to change domain assignment.
     DOMAIN_KEYWORDS = yaml.safe_load((_ONTOLOGY_DIR / "domain_keywords.yaml").read_text(encoding="utf-8")) or {}
@@ -71,29 +76,31 @@ def _infer_grain_keys(column_names: List[str]) -> List[str]:
     return [c for c in column_names if c.lower() in GRAIN_KEY_CANDIDATES]
 
 
-def _infer_product_lines(tags: List[str]) -> List[str]:
-    seen: List[str] = []
-    for tag in tags:
-        pl = _TAG_TO_PRODUCT_LINE.get(tag)
-        if pl and pl not in seen:
-            seen.append(pl)
-    return seen
+def _infer_tag_dimensions(tags: List[str]) -> Dict[str, List[str]]:
+    """Classify a flat dbt tag list across every registered dimension.
 
+    For each dimension in _DIMENSION_TAG_MAPPINGS, iterates the asset's tags in order and
+    collects any that map to a dimension value, deduplicating while preserving order.
+    Dimensions with no matching tags are omitted from the result — the returned dict only
+    contains dimensions that the asset actually participates in.
 
-def _infer_lineage_layers(tags: List[str]) -> List[str]:
-    """Return all lineage-layer values the tag list maps to, in tag order, deduplicated.
-
-    Previously this returned only the first matching layer (first-match), discarding any
-    secondary layer signal. Every tag in the mapping is now preserved — e.g. an asset
-    tagged ['hx', 'bookends'] yields ['historic_exchange', 'conformed_bookends'].
+    Example — tags=['HX', 'bookends', 'd_o'] yields:
+        {
+          "lineage_layer": ["historic_exchange", "conformed_bookends"],
+          "product_line":  ["directors_and_officers"],
+        }
     """
-    seen: set = set()
-    result: List[str] = []
-    for tag in tags:
-        layer = _TAG_TO_LINEAGE_LAYER.get(tag)
-        if layer and layer not in seen:
-            seen.add(layer)
-            result.append(layer)
+    result: Dict[str, List[str]] = {}
+    for dim_name, tag_map in _DIMENSION_TAG_MAPPINGS.items():
+        seen: set = set()
+        values: List[str] = []
+        for tag in tags:
+            mapped = tag_map.get(tag)
+            if mapped and mapped not in seen:
+                seen.add(mapped)
+                values.append(mapped)
+        if values:
+            result[dim_name] = values
     return result
 
 
@@ -295,8 +302,7 @@ class DbtMetadataAdapter(BaseAdapter):
 
         domain_candidates = _infer_domains(name, description, tags, column_names)
         grain_keys = _infer_grain_keys(column_names)
-        product_lines = _infer_product_lines(tags)
-        lineage_layers = _infer_lineage_layers(tags)
+        tag_dimensions = _infer_tag_dimensions(tags)
 
         provenance = self._provenance(SOURCE_SYSTEM, SOURCE_TYPE, unique_id, entity)
 
@@ -328,8 +334,7 @@ class DbtMetadataAdapter(BaseAdapter):
             size_mb=size_mb,
             grain_keys=grain_keys,
             domain_candidates=domain_candidates,
-            product_lines=product_lines,
-            lineage_layers=lineage_layers,
+            tag_dimensions=tag_dimensions,
             is_enabled=entity.get("config", {}).get("enabled", True),
             version_hash=version_hash,
             provenance=provenance,

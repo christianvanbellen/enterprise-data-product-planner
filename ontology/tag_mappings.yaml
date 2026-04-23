@@ -1,41 +1,51 @@
-# tag_mappings.yaml — dbt tag → pipeline classification
-# Read by: DbtMetadataAdapter at module load (Phase 1)
-# Effect: tag_to_lineage_layer populates CanonicalAsset.lineage_layers (a list, not a single
-#         value — every matching tag contributes, in tag order, deduplicated). That list then
-#         drives _infer_table_type() dimensional role inference in Phase 5 — Signal 1 scans
-#         all layers against _LAYER_TO_TYPE rather than only the first match.
-#         tag_to_product_line drives product_line_segmentation primitive matching in Phase 4.
-# See: docs/inputs.md — tag_mappings.yaml section
+# tag_mappings.yaml — dbt tag → dimensional classification (Phase 1 + Phase 3)
+#
+# Read by:
+#   - DbtMetadataAdapter at module load (Phase 1) — consumes every dimension's tag_mappings
+#     to populate CanonicalAsset.tag_dimensions
+#   - EntityMapper at module load (Phase 3) — consumes entity_bindings to drive Signal 3
+#     entity binding
+#
+# Each dimension is a self-contained block under `dimensions:`. Adding a new dimension
+# (e.g. region, business_unit) requires only a YAML edit — no Python change. A dimension
+# has:
+#   tag_mappings     — (required) raw dbt tag → mapped dimension value
+#   entity_bindings  — (optional) dimension value → ontology entity label for Phase 3
+#   description      — (optional) human-readable explanation
+#
+# Project-specific consumers (notably _infer_table_type() in graph/spec/assembler.py) may
+# still hardcode dimension names and values. Those cases are marked with comments in the
+# consuming code. For a new project, those hardcoded heuristics need domain-specific
+# updates beyond this YAML.
+#
+# See docs/inputs.md — tag_mappings.yaml section.
 
-tag_to_product_line:
-  eupi: european_professional_indemnity
-  d_o: directors_and_officers
-  general_aviation: general_aviation
-  london_cash_in_transit_and_general_specie: cash_in_transit_and_specie
-  contingency: contingency
-  dp: digital_platform
+dimensions:
 
-tag_to_lineage_layer:
-  hx: historic_exchange
-  ll: liberty_link
-  gen2: gen2_mart
-  raw: raw_layer
-  source: source_table
-  bookends: conformed_bookends
-  semi_conformed: semi_conformed_mart
+  lineage_layer:
+    description: "Warehouse architecture layer — drives _infer_table_type() Signal 1/4"
+    tag_mappings:
+      hx:             historic_exchange
+      ll:             liberty_link
+      gen2:           gen2_mart
+      raw:            raw_layer
+      source:         source_table
+      bookends:       conformed_bookends
+      semi_conformed: semi_conformed_mart
 
-# product_line (mapped value) → ontology entity label
-# Read by: EntityMapper at module load (Phase 3)
-# Effect: drives Signal 3 of entity binding. An asset whose product_lines list contains
-#         any key below gets an EntityCandidate for the mapped entity with confidence 0.6,
-#         which can promote the asset to a BusinessEntityNode binding even when
-#         column-signature scoring is weak.
-# Sync: every value in the right-hand side of tag_to_product_line above should appear
-#       as a key here.
-product_line_to_entity:
-  european_professional_indemnity: line_of_business
-  directors_and_officers:          line_of_business
-  general_aviation:                line_of_business
-  cash_in_transit_and_specie:      line_of_business
-  contingency:                     line_of_business
-  digital_platform:                line_of_business
+  product_line:
+    description: "Business line of business — drives entity binding and tag-based primitive matching"
+    tag_mappings:
+      eupi:                                       european_professional_indemnity
+      d_o:                                        directors_and_officers
+      general_aviation:                           general_aviation
+      london_cash_in_transit_and_general_specie:  cash_in_transit_and_specie
+      contingency:                                contingency
+      dp:                                         digital_platform
+    entity_bindings:
+      european_professional_indemnity: line_of_business
+      directors_and_officers:          line_of_business
+      general_aviation:                line_of_business
+      cash_in_transit_and_specie:      line_of_business
+      contingency:                     line_of_business
+      digital_platform:                line_of_business

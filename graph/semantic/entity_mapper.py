@@ -14,11 +14,23 @@ from graph.semantic.ontology_loader import SynonymRegistry
 _TAG_MAPPINGS_PATH = Path(__file__).parent.parent.parent / "ontology" / "tag_mappings.yaml"
 
 
-def _load_product_line_to_entity() -> Dict[str, str]:
-    """Load product_line → entity label mapping from ontology/tag_mappings.yaml."""
+def _load_dimension_entity_bindings() -> Dict[str, Dict[str, str]]:
+    """Load per-dimension entity bindings from ontology/tag_mappings.yaml.
+
+    Returns a dict keyed by dimension name (e.g. "product_line") containing that
+    dimension's {value → entity_label} map. Dimensions without an entity_bindings
+    block are omitted.
+
+    Example: {"product_line": {"directors_and_officers": "line_of_business", ...}}
+    """
     try:
         raw = yaml.safe_load(_TAG_MAPPINGS_PATH.read_text(encoding="utf-8"))
-        return dict(raw.get("product_line_to_entity", {}))
+        result: Dict[str, Dict[str, str]] = {}
+        for dim_name, dim_spec in (raw.get("dimensions") or {}).items():
+            bindings = (dim_spec or {}).get("entity_bindings")
+            if bindings:
+                result[dim_name] = dict(bindings)
+        return result
     except Exception:
         return {}
 
@@ -32,11 +44,9 @@ CONFORMED_GROUP_TO_ENTITY: Dict[str, str] = {
     "policy_totals":          "policy",
 }
 
-# Loaded from ontology/tag_mappings.yaml — edit that file to change product_line binding.
-TAG_TO_ENTITY: Dict[str, str] = _load_product_line_to_entity()
-
-# Alias for backward compatibility with existing tests/code
-PRODUCT_LINE_TO_ENTITY = TAG_TO_ENTITY
+# Loaded from ontology/tag_mappings.yaml: {dimension_name: {value: entity_label}}.
+# Edit that file's entity_bindings blocks to add or change Signal 3 bindings.
+DIMENSION_ENTITY_BINDINGS: Dict[str, Dict[str, str]] = _load_dimension_entity_bindings()
 
 # Maps substrings in asset normalized_name → entity label (signal 4)
 # Used when signature scoring can't reach threshold due to sparse column coverage.
@@ -119,14 +129,18 @@ class EntityMapper:
                      "signature_score",
                      {"signature_score": raw_score})
 
-        # ---- Signal 3: Tag-based product line (confidence 0.6) ----
+        # ---- Signal 3: Tag-dimension entity bindings (confidence 0.6) ----
+        # Iterate every dimension that declared entity_bindings in tag_mappings.yaml.
+        # For each asset, every matching dimension value emits a 0.6-confidence candidate
+        # for the mapped entity.
         for asset in bundle.assets:
-            for pl in asset.product_lines:
-                entity_label = TAG_TO_ENTITY.get(pl)
-                if entity_label:
-                    _add(asset.internal_id, entity_label, 0.6,
-                         "tag_product_line",
-                         {"product_line": pl})
+            for dim_name, bindings in DIMENSION_ENTITY_BINDINGS.items():
+                for value in asset.tag_dimensions.get(dim_name, []):
+                    entity_label = bindings.get(value)
+                    if entity_label:
+                        _add(asset.internal_id, entity_label, 0.6,
+                             f"tag_{dim_name}",
+                             {"dimension": dim_name, "value": value})
 
         # ---- Signal 4: Asset name pattern (confidence 0.6) ----
         for asset in bundle.assets:

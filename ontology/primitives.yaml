@@ -101,11 +101,12 @@ primitives:
 
   - id: product_line_segmentation
     required_entities: [line_of_business, coverage]
-    # Tag-based matching — no required_columns. Assets match if their product_lines list
-    # intersects required_tags. IMPORTANT: these values must be the *mapped* product_line
-    # strings (from the right-hand side of tag_to_product_line in tag_mappings.yaml),
-    # NOT the raw dbt tag names — asset.product_lines holds mapped values.
+    # Tag-based matching. required_tag_dimension names which tag_dimensions key to
+    # intersect against (here "product_line"); required_tags lists the expected values
+    # for that dimension. Values must be the *mapped* dimension values from
+    # tag_mappings.yaml, not raw dbt tag names.
     required_columns: []
+    required_tag_dimension: product_line
     required_tags:
       - european_professional_indemnity
       - directors_and_officers

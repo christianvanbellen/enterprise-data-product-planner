@@ -8,7 +8,7 @@ from ingestion.contracts.asset import CanonicalAsset, CanonicalColumn, Provenanc
 from ingestion.contracts.bundle import CanonicalBundle
 from ingestion.contracts.business import CanonicalBusinessTerm
 from graph.semantic.conformed_binder import ConformedFieldBinder, ConformedBindingResult
-from graph.semantic.entity_mapper import EntityMapper, TAG_TO_ENTITY, PRODUCT_LINE_TO_ENTITY
+from graph.semantic.entity_mapper import EntityMapper, DIMENSION_ENTITY_BINDINGS
 
 BUNDLE_PATH = Path("output/bundle.json")
 
@@ -19,13 +19,14 @@ def _prov() -> Provenance:
 
 def _asset(asset_id: str, name: str, product_lines: List[str] = None,
            tags: List[str] = None, domain_candidates: List[str] = None) -> CanonicalAsset:
+    tag_dims = {"product_line": list(product_lines)} if product_lines else {}
     return CanonicalAsset(
         internal_id=asset_id,
         asset_type="dbt_model",
         name=name,
         normalized_name=name,
         tags=tags or [],
-        product_lines=product_lines or [],
+        tag_dimensions=tag_dims,
         domain_candidates=domain_candidates or [],
         grain_keys=[],
         is_enabled=True,
@@ -65,11 +66,17 @@ def golden_candidates(golden_bundle):
 
 
 # ------------------------------------------------------------------ #
-# TAG_TO_ENTITY alias still importable as PRODUCT_LINE_TO_ENTITY     #
+# DIMENSION_ENTITY_BINDINGS loads from tag_mappings.yaml               #
 # ------------------------------------------------------------------ #
 
-def test_product_line_to_entity_alias_is_tag_to_entity():
-    assert PRODUCT_LINE_TO_ENTITY is TAG_TO_ENTITY
+def test_dimension_entity_bindings_loaded_from_yaml():
+    """product_line dimension must have entity bindings loaded from YAML."""
+    assert "product_line" in DIMENSION_ENTITY_BINDINGS
+    product_bindings = DIMENSION_ENTITY_BINDINGS["product_line"]
+    # All six product_line values should map to line_of_business
+    assert product_bindings.get("european_professional_indemnity") == "line_of_business"
+    assert product_bindings.get("directors_and_officers") == "line_of_business"
+    assert product_bindings.get("digital_platform") == "line_of_business"
 
 
 # ------------------------------------------------------------------ #

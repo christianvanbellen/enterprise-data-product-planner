@@ -35,13 +35,20 @@ class CanonicalAsset(BaseModel):
     size_mb: Optional[float] = None
     grain_keys: List[str] = Field(default_factory=list)
     domain_candidates: List[str] = Field(default_factory=list)
-    product_lines: List[str] = Field(default_factory=list)
-    # All lineage-layer values the asset's tags map to, in tag order, deduplicated.
-    # Example: an asset tagged ['hx', 'bookends'] yields ['historic_exchange', 'conformed_bookends'].
-    # Phase 5's _infer_table_type scans this list for any _LAYER_TO_TYPE match — so both
-    # pipeline-stage tags (hx/ll/gen2/raw/source) and conformance-grade tags (bookends/semi_conformed)
-    # contribute. See docs/inputs.md — tag_mappings.yaml section.
-    lineage_layers: List[str] = Field(default_factory=list)
+    # Per-dimension tag classification derived from dbt tags. Keys are dimension names
+    # registered in ontology/tag_mappings.yaml (e.g. "lineage_layer", "product_line").
+    # Values are lists of mapped tag values for that dimension, in tag order, deduplicated.
+    #
+    # Example for an asset tagged ['hx', 'bookends', 'd_o']:
+    #   {
+    #     "lineage_layer": ["historic_exchange", "conformed_bookends"],
+    #     "product_line":  ["directors_and_officers"],
+    #   }
+    #
+    # Consumers access a specific dimension via asset.tag_dimensions.get("<dim>", []).
+    # Adding a new dimension requires a YAML edit in tag_mappings.yaml only — no change
+    # to this contract. See docs/inputs.md — tag_mappings.yaml section.
+    tag_dimensions: Dict[str, List[str]] = Field(default_factory=dict)
     is_enabled: bool = True
     version_hash: str
     provenance: Provenance

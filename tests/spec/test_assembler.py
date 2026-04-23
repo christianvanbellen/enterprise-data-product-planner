@@ -857,13 +857,14 @@ def _make_infer_asset(grain_keys=None, lineage_layers=None):
     """Minimal CanonicalAsset for _infer_table_type tests."""
     from ingestion.contracts.asset import CanonicalAsset, Provenance
     prov = Provenance(source_system="test", source_type="test")
+    tag_dims = {"lineage_layer": list(lineage_layers)} if lineage_layers else {}
     return CanonicalAsset(
         internal_id="test_asset",
         asset_type="dbt_model",
         name="test_asset",
         normalized_name="test_asset",
         grain_keys=grain_keys or [],
-        lineage_layers=list(lineage_layers) if lineage_layers else [],
+        tag_dimensions=tag_dims,
         version_hash="abc",
         provenance=prov,
     )
@@ -1043,11 +1044,13 @@ def _make_fact_dim_setup():
     assets = [
         CanonicalAsset(internal_id="fact_001", asset_type="dbt_model",
                        name="fact_measures", normalized_name="fact_measures",
-                       grain_keys=["quote_id"], lineage_layers=["gen2_mart"],
+                       grain_keys=["quote_id"],
+                       tag_dimensions={"lineage_layer": ["gen2_mart"]},
                        version_hash="a", provenance=prov),
         CanonicalAsset(internal_id="dim_001", asset_type="dbt_model",
                        name="dim_setup", normalized_name="dim_setup",
-                       grain_keys=["quote_id"], lineage_layers=["liberty_link"],
+                       grain_keys=["quote_id"],
+                       tag_dimensions={"lineage_layer": ["liberty_link"]},
                        version_hash="a", provenance=prov),
     ]
     columns = [

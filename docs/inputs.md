@@ -79,14 +79,14 @@ affecting spec quality downstream.
 - Model names, file paths, materialisation types
 - Column names, raw data types, and column descriptions (from `schema.yml`)
 - dbt tests attached to columns
-- dbt model tags — used for `lineage_layers` and `product_lines` assignment via `tag_mappings.yaml`
+- dbt model tags — classified across every dimension registered in `tag_mappings.yaml` and stored on `asset.tag_dimensions`
 - `depends_on.nodes` — the explicit upstream lineage graph (201 `DEPENDS_ON` edges)
 
 **Effect of changes:**
 - Adding column descriptions → more columns pass the positive-inclusion filter in Phase 5
   specs; reduces the undescribed-column warnings in the WHEN section
 - Adding dbt tests → raises test coverage %, reduces the ⚠ data quality warnings
-- Adding or changing model tags → changes `lineage_layers` and `product_lines` assignments,
+- Adding or changing model tags → changes `tag_dimensions` entries for every affected dimension,
   which affects dimensional role inference (`_infer_table_type`) in Phase 5
 - Adding new models → new `Asset` nodes; may add new primitive support if they match
   required entity groups and columns
@@ -137,20 +137,33 @@ the phase that reads them.
 
 ### `ontology/tag_mappings.yaml`
 
-**Read by:** `DbtMetadataAdapter` at module load (Phase 1) for the first two blocks;
-`EntityMapper` at module load (Phase 3) for the third block.
+**Read by:** `DbtMetadataAdapter` at module load (Phase 1) for tag classification;
+`EntityMapper` at module load (Phase 3) for entity bindings.
 
-**What it controls:** Three related mappings that together govern how raw dbt tags
-translate into structured asset metadata and entity bindings.
+**What it controls:** The complete dimensional classification of dbt tags. Each dimension
+is a self-contained block under `dimensions:` containing its own tag mappings and
+(optionally) its own entity bindings. Adding a new dimension requires only a YAML edit —
+no Python code change.
 
-**Block 1 — `tag_to_lineage_layer`** — maps each dbt tag to a lineage-layer string.
-Every matching tag is collected into the asset's `lineage_layers` list (in tag order,
-deduplicated), so an asset tagged `['hx', 'bookends']` yields
-`['historic_exchange', 'conformed_bookends']`. `_infer_table_type()` in Phase 5 scans
-the whole list against its `_LAYER_TO_TYPE` table.
+**Structure:**
 
-| Tag | lineage_layer value | Table type inferred |
-|-----|--------------|---------------------|
+```yaml
+dimensions:
+  <dimension_name>:
+    description: "..."           # human-readable purpose
+    tag_mappings:                # required — raw dbt tag → mapped value
+      <raw_tag>: <mapped_value>
+    entity_bindings:             # optional — mapped_value → entity label for Phase 3 Signal 3
+      <mapped_value>: <entity_label>
+```
+
+**Current dimensions (2):**
+
+**`lineage_layer`** — Warehouse architecture layer. Populates `asset.tag_dimensions["lineage_layer"]`.
+Consumed by `_infer_table_type()` in Phase 5 to classify assets as fact/dimension/snapshot/source/bridge.
+
+| Raw tag | Mapped value | Table type inferred |
+|---------|-------------|---------------------|
 | `hx` | `historic_exchange` | snapshot |
 | `ll` | `liberty_link` | (composition-based) |
 | `gen2` | `gen2_mart` | fact (with refinement) |
@@ -159,19 +172,46 @@ the whole list against its `_LAYER_TO_TYPE` table.
 | `bookends` | `conformed_bookends` | (composition-based) |
 | `semi_conformed` | `semi_conformed_mart` | (composition-based) |
 
-**Block 2 — `tag_to_product_line`** — maps a dbt tag to a `product_lines` entry on
-the asset. Used by `product_line_segmentation` primitive matching in Phase 4 (tag-based,
-not column-based). Populates `asset.product_lines` with the mapped value (not the raw tag).
+No `entity_bindings` block — this dimension does not feed Phase 3 Signal 3.
 
-**Block 3 — `product_line_to_entity`** — maps each product_line value to a semantic
-entity label. `EntityMapper` in Phase 3 uses this as Signal 3 of entity binding: every
-product-line-tagged asset gets an `EntityCandidate` for the mapped entity (`line_of_business`
-for all current values) with confidence 0.6. This can promote an asset to a
-`BusinessEntityNode` binding even when column-signature scoring is weak.
+**`product_line`** — Business line of business. Populates `asset.tag_dimensions["product_line"]`.
+Consumed by `CapabilityPrimitiveExtractor` in Phase 4 for tag-based primitive matching
+(`product_line_segmentation`) and by `EntityMapper` in Phase 3 Signal 3 via its
+`entity_bindings` block.
 
-**Sync requirement between blocks 2 and 3:** every value on the right-hand side of
-`tag_to_product_line` should appear as a key in `product_line_to_entity`. Missing entries
-silently drop Signal 3 for that product line.
+| Raw tag | Mapped value | Entity binding |
+|---------|-------------|----------------|
+| `eupi` | `european_professional_indemnity` | `line_of_business` |
+| `d_o` | `directors_and_officers` | `line_of_business` |
+| `general_aviation` | `general_aviation` | `line_of_business` |
+| `london_cash_in_transit_and_general_specie` | `cash_in_transit_and_specie` | `line_of_business` |
+| `contingency` | `contingency` | `line_of_business` |
+| `dp` | `digital_platform` | `line_of_business` |
+
+**Adding a new dimension (e.g. `region`):**
+
+```yaml
+dimensions:
+  region:
+    description: "Geographic region"
+    tag_mappings:
+      uk: united_kingdom
+      eu: european_union
+    entity_bindings:                   # optional
+      united_kingdom: geographic_region
+      european_union:  geographic_region
+```
+
+Once added, every asset's tags are classified against this new dimension at Phase 1,
+the values land on `asset.tag_dimensions["region"]`, and Phase 3 Signal 3 fires if
+`entity_bindings` is provided. No consumer code changes needed — consumers that want to
+act on a specific dimension reference it by name.
+
+**Project-specific heuristics that still live in Python:**
+- `_LAYER_TO_TYPE` in `graph/spec/assembler.py` — maps specific lineage_layer values to
+  DataRequisite table types (Liberty-specific)
+- `gen2_mart` refinement in `_infer_table_type()` — encodes Liberty-specific domain knowledge
+- These are warehouse-specific decisions that don't generalise cleanly to YAML.
 
 ---
 
@@ -359,8 +399,10 @@ initiative readiness, composite scores, and the structural content of specs.
   description: "End-to-end quote and policy lifecycle tracking"
 ```
 
-Special case — `product_line_segmentation` uses `required_tags` instead of
-`required_columns` (matched against asset `product_lines` tags rather than column names).
+Special case — a primitive can declare `required_tag_dimension` + `required_tags`
+instead of `required_columns`. The extractor intersects `required_tags` against
+`asset.tag_dimensions[required_tag_dimension]` rather than matching column names.
+`product_line_segmentation` uses this form with `required_tag_dimension: product_line`.
 
 **Maturity score:** `(entity_score × 0.5) + (column_score × 0.5)`. A score below 0.5
 triggers a `⚠ partial` warning in the WHEN section.

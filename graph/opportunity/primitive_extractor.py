@@ -34,6 +34,9 @@ def _load_primitive_definitions() -> Dict[str, Dict[str, Any]]:
         }
         if "required_tags" in entry:
             defn["required_tags"] = set(entry["required_tags"])
+            # required_tag_dimension names which asset.tag_dimensions key to intersect
+            # against. Required whenever required_tags is present.
+            defn["required_tag_dimension"] = entry.get("required_tag_dimension", "")
         result[pid] = defn
     return result
 
@@ -114,10 +117,14 @@ class CapabilityPrimitiveExtractor:
             all_col_names.add(col.normalized_name)
             asset_cols[col.asset_internal_id].add(col.normalized_name)
 
-        # ── Asset tags (product_lines) map ────────────────────────────────
-        asset_tags: Dict[str, Set[str]] = {}
+        # ── Asset id → tag_dimensions for tag-based primitive matching ───
+        # Lookup table: asset_id → dict of {dimension_name: set(values)}.
+        # Used only when a primitive declares required_tags + required_tag_dimension.
+        asset_tag_dims: Dict[str, Dict[str, Set[str]]] = {}
         for asset in bundle.assets:
-            asset_tags[asset.internal_id] = set(asset.product_lines or [])
+            asset_tag_dims[asset.internal_id] = {
+                dim: set(values) for dim, values in (asset.tag_dimensions or {}).items()
+            }
 
         # ── Asset id → name for reference ────────────────────────────────
         asset_name: Dict[str, str] = {a.internal_id: a.name for a in bundle.assets}
@@ -129,6 +136,7 @@ class CapabilityPrimitiveExtractor:
             required_entities: List[str] = defn["required_entities"]
             required_columns: Set[str]   = defn.get("required_columns", set())
             required_tags: Set[str]      = defn.get("required_tags", set())
+            required_tag_dim: str        = defn.get("required_tag_dimension", "")
             supporting_domains: List[str] = defn["supporting_domains"]
 
             # Entity coverage
@@ -158,10 +166,10 @@ class CapabilityPrimitiveExtractor:
                     aid for aid in candidate_assets
                     if asset_cols.get(aid, set()) & required_columns
                 )
-            elif required_tags:
+            elif required_tags and required_tag_dim:
                 supporting = sorted(
                     aid for aid in candidate_assets
-                    if asset_tags.get(aid, set()) & required_tags
+                    if asset_tag_dims.get(aid, {}).get(required_tag_dim, set()) & required_tags
                 )
             else:
                 supporting = sorted(candidate_assets)
