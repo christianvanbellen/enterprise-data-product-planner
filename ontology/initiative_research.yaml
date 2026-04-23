@@ -63,7 +63,10 @@ initiative_taxonomy:
     # Scoring
     archetype: monitoring
     required_primitives: [pricing_decomposition, rate_change_monitoring]
-    optional_primitives: [profitability_decomposition]
+    # portfolio_rate_monitoring added April 2026 (v1 entity research) — the
+    # portfolio-level rate roll-up is a natural enabler for adequacy monitoring
+    # even though the monitoring itself is per-microsegment.
+    optional_primitives: [profitability_decomposition, portfolio_rate_monitoring, layer_pricing]
     business_value_score: 0.85
     implementation_effort_score: 0.35
     target_users: [pricing_team, underwriting_leads]
@@ -165,7 +168,10 @@ initiative_taxonomy:
     # Scoring
     archetype: decision_support
     required_primitives: [pricing_decomposition, rate_change_monitoring]
-    optional_primitives: [claims_experience, profitability_decomposition]
+    # layer_pricing added April 2026 (v1 entity research) — layer-level
+    # benchmarking is a natural extension of technical price benchmarking
+    # for specialty business where rates vary by layer.
+    optional_primitives: [claims_experience, profitability_decomposition, layer_pricing]
     business_value_score: 0.85
     implementation_effort_score: 0.50
     target_users: [pricing_team, actuaries]
@@ -309,7 +315,10 @@ initiative_taxonomy:
   - id: portfolio_drift_monitoring
     # Scoring
     archetype: anomaly_detection
-    required_primitives: [rate_change_monitoring, exposure_structure]
+    # portfolio_rate_monitoring promoted to required April 2026 (v1 entity
+    # research) — the portfolio-level rate roll-up is the direct feed for
+    # drift monitoring; this initiative's whole point is the roll-up view.
+    required_primitives: [rate_change_monitoring, exposure_structure, portfolio_rate_monitoring]
     optional_primitives: [product_line_segmentation, claims_experience]
     business_value_score: 0.80
     implementation_effort_score: 0.30
@@ -452,7 +461,9 @@ initiative_taxonomy:
     # Scoring
     archetype: copilot
     required_primitives: [quote_lifecycle, pricing_decomposition, renewal_tracking]
-    optional_primitives: [claims_experience, broker_attribution]
+    # layer_pricing added April 2026 (v1 entity research) — renewal decisions
+    # in specialty business involve layer-level price comparisons.
+    optional_primitives: [claims_experience, broker_attribution, layer_pricing]
     business_value_score: 0.80
     implementation_effort_score: 0.70
     target_users: [underwriters]
