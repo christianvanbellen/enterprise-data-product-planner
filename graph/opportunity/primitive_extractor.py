@@ -70,12 +70,24 @@ class CapabilityPrimitive:
 # ---------------------------------------------------------------------------
 
 class CapabilityPrimitiveExtractor:
-    """Extract CapabilityPrimitive records from the bundle + semantic graph state."""
+    """Extract CapabilityPrimitive records from the bundle + semantic graph state.
+
+    The `min_entity_confidence` parameter lets callers tighten which REPRESENTS
+    edges qualify as evidence for a primitive's `required_entities`:
+      0.0  (default) — any binding counts. Matches current behaviour.
+      0.6  — drops flat-0.6 Signals 3-4 and discounted Signal 2 scores,
+              keeping bindings where evidence is at least 'moderate'.
+      0.8  — roughly 'governed-only': keeps Signal 1 (overlap_score, up to 1.0)
+              and the strongest Signal-2 signatures, drops everything else.
+      1.0  — strictly Signal 1 with perfect column overlap.
+    See docs/phase4_opportunity_layer.md for the policy recommendation per audience.
+    """
 
     def extract(
         self,
         bundle: CanonicalBundle,
         graph_store: Any,           # JsonGraphStore (or compatible)
+        min_entity_confidence: float = 0.0,
     ) -> List[CapabilityPrimitive]:
 
         # ── Build entity → asset_ids from REPRESENTS edges ────────────────
@@ -90,11 +102,15 @@ class CapabilityPrimitiveExtractor:
                 node_entity_label[node["node_id"]] = node["properties"]["entity_label"]
 
         for edge in graph_store._edges.values():
-            if edge.get("edge_type") == "REPRESENTS":
-                tgt = edge["target_node_id"]
-                entity_label = node_entity_label.get(tgt)
-                if entity_label:
-                    entity_to_assets[entity_label].add(edge["source_node_id"])
+            if edge.get("edge_type") != "REPRESENTS":
+                continue
+            edge_conf = float(edge.get("properties", {}).get("confidence", 0.0))
+            if edge_conf < min_entity_confidence:
+                continue
+            tgt = edge["target_node_id"]
+            entity_label = node_entity_label.get(tgt)
+            if entity_label:
+                entity_to_assets[entity_label].add(edge["source_node_id"])
 
         # ── Build domain → asset_ids from BELONGS_TO_DOMAIN edges ─────────
         domain_assets: Dict[str, Set[str]] = defaultdict(set)

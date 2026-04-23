@@ -56,6 +56,7 @@ class OpportunityGraphCompiler:
         bundle: CanonicalBundle,
         graph_store: Any,           # JsonGraphStore (or compatible)
         build_id: str,
+        min_entity_confidence: float = 0.0,
     ) -> OpportunityBuildArtifact:
 
         # ── Step 0: Purge stale opportunity layer (idempotent re-run) ────
@@ -63,7 +64,9 @@ class OpportunityGraphCompiler:
 
         # ── Step 1: Extract primitives ────────────────────────────────────
         extractor = CapabilityPrimitiveExtractor()
-        primitives = extractor.extract(bundle, graph_store)
+        primitives = extractor.extract(
+            bundle, graph_store, min_entity_confidence=min_entity_confidence,
+        )
 
         # ── Step 2: Plan initiatives ──────────────────────────────────────
         library = InitiativeArchetypeLibrary()

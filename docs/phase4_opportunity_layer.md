@@ -101,6 +101,27 @@ optional primitives, business value/effort scores, and a literature reference.
 Readiness is the **minimum** of primitive-based readiness and the
 `feasibility_against_warehouse` ceiling from the research artifact.
 
+### Entity-binding confidence threshold (`--min-entity-confidence`)
+
+By default, any REPRESENTS edge with `confidence ≥ MIN_CONFIDENCE` (0.4, set in
+`entity_bindings.yaml`) counts as evidence that a primitive's `required_entities`
+are met. This is the **pragmatic** view — latent capabilities surface via
+discovery-layer signals (entity signatures, asset-name patterns, tag bindings)
+even if the conformed schema hasn't formalised them.
+
+`run_phase4.py --min-entity-confidence <value>` tightens this threshold:
+
+| Value | Effective view | Typical use |
+|-------|---------------|-------------|
+| `0.0` (default) | Any binding counts — discovery and governance treated equally | Opportunity ideation, internal portfolio reviews |
+| `0.6` | Drops flat Signal-3/4 bindings (tag-dim, asset-name) | Mid-confidence filter when you want some discovery signal but not substring matches |
+| `0.8` | ≈ governed-only — keeps Signal 1 (conformed-schema overlap up to 1.0) and the strongest Signal-2 signatures | Formal readiness reports, steering-committee slides |
+| `1.0` | Strictly Signal 1 with perfect column overlap | Audit or certification contexts |
+
+Raising the threshold can *only* reduce an initiative's entity_score, never
+increase it, so every run at a higher threshold is a strict subset of the
+default run. See `CapabilityPrimitiveExtractor.extract` for the implementation.
+
 ### Composite score
 
 ```

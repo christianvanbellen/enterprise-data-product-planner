@@ -113,6 +113,29 @@ def test_all_maturity_scores_in_range(golden_primitives):
 # Determinism                                                          #
 # ------------------------------------------------------------------ #
 
+def test_min_entity_confidence_filters_weaker_bindings(golden_bundle, golden_graph_store):
+    """A higher min_entity_confidence must never widen the entity_score; it should
+    produce the same-or-lower maturity for every primitive compared with the default."""
+    default_runs = {
+        p.primitive_id: p
+        for p in CapabilityPrimitiveExtractor().extract(
+            golden_bundle, golden_graph_store, min_entity_confidence=0.0,
+        )
+    }
+    strict_runs = {
+        p.primitive_id: p
+        for p in CapabilityPrimitiveExtractor().extract(
+            golden_bundle, golden_graph_store, min_entity_confidence=0.8,
+        )
+    }
+    assert set(default_runs) == set(strict_runs), "primitive set must not depend on threshold"
+    for pid, strict in strict_runs.items():
+        dflt = default_runs[pid]
+        assert strict.entity_score <= dflt.entity_score, (
+            f"{pid}: strict entity_score {strict.entity_score} > default {dflt.entity_score}"
+        )
+
+
 def test_deterministic_output(golden_bundle, golden_graph_store):
     r1 = CapabilityPrimitiveExtractor().extract(golden_bundle, golden_graph_store)
     r2 = CapabilityPrimitiveExtractor().extract(golden_bundle, golden_graph_store)

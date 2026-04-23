@@ -33,6 +33,13 @@ def main(
     store: str   = typer.Option("json", "--store", help="Graph store type (only 'json' supported)"),
     output: Path = typer.Option(..., "--output", help="Output directory for enriched graph JSON"),
     build_id: str = typer.Option(None, "--build-id", help="Optional build ID (auto-generated if omitted)"),
+    min_entity_confidence: float = typer.Option(
+        0.0, "--min-entity-confidence",
+        help="Only count REPRESENTS edges at or above this confidence towards primitive "
+             "readiness. 0.0 = any binding (default). 0.6 = drop flat Signal-3/4 bindings. "
+             "0.8 ≈ governed-only (Signal 1 conformed bindings and strongest Signal-2 "
+             "signatures). See docs/phase4_opportunity_layer.md.",
+    ),
 ) -> None:
     if not bundle.exists():
         console.print(f"[red]Bundle file not found: {bundle}[/red]")
@@ -54,7 +61,10 @@ def main(
     opp_build_id = build_id or f"opp_{stable_hash(utc_now_iso())}"
 
     compiler = OpportunityGraphCompiler()
-    artifact = compiler.compile(canonical_bundle, graph_store, opp_build_id)
+    artifact = compiler.compile(
+        canonical_bundle, graph_store, opp_build_id,
+        min_entity_confidence=min_entity_confidence,
+    )
 
     graph_store.export_json(output)
 
@@ -81,7 +91,10 @@ def main(
         from graph.opportunity.archetype_library import InitiativeArchetypeLibrary
         from graph.opportunity.planner import OpportunityPlanner
         fresh_graph = JsonGraphStore.from_json(output)
-        primitives = CapabilityPrimitiveExtractor().extract(canonical_bundle, fresh_graph)
+        primitives = CapabilityPrimitiveExtractor().extract(
+            canonical_bundle, fresh_graph,
+            min_entity_confidence=min_entity_confidence,
+        )
         opps = OpportunityPlanner().plan(primitives, InitiativeArchetypeLibrary())
         opp_by_id = {o.initiative_id: o for o in opps}
 
