@@ -2,11 +2,26 @@
 
 import warnings
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Set
+
+import yaml
 
 from ingestion.contracts.bundle import CanonicalBundle
 from graph.semantic.conformed_binder import ConformedBindingResult
 from graph.semantic.ontology_loader import SynonymRegistry
+
+_TAG_MAPPINGS_PATH = Path(__file__).parent.parent.parent / "ontology" / "tag_mappings.yaml"
+
+
+def _load_product_line_to_entity() -> Dict[str, str]:
+    """Load product_line → entity label mapping from ontology/tag_mappings.yaml."""
+    try:
+        raw = yaml.safe_load(_TAG_MAPPINGS_PATH.read_text(encoding="utf-8"))
+        return dict(raw.get("product_line_to_entity", {}))
+    except Exception:
+        return {}
+
 
 # Maps conformed schema entity groups → ontology entity labels
 CONFORMED_GROUP_TO_ENTITY: Dict[str, str] = {
@@ -17,16 +32,8 @@ CONFORMED_GROUP_TO_ENTITY: Dict[str, str] = {
     "policy_totals":          "policy",
 }
 
-# Maps product_line values → ontology entity labels (signal 3)
-# Kept for backward compatibility; TAG_TO_ENTITY is the canonical name.
-TAG_TO_ENTITY: Dict[str, str] = {
-    "european_professional_indemnity": "line_of_business",
-    "directors_and_officers":          "line_of_business",
-    "general_aviation":                "line_of_business",
-    "cash_in_transit_and_specie":      "line_of_business",
-    "contingency":                     "line_of_business",
-    "digital_platform":                "line_of_business",
-}
+# Loaded from ontology/tag_mappings.yaml — edit that file to change product_line binding.
+TAG_TO_ENTITY: Dict[str, str] = _load_product_line_to_entity()
 
 # Alias for backward compatibility with existing tests/code
 PRODUCT_LINE_TO_ENTITY = TAG_TO_ENTITY

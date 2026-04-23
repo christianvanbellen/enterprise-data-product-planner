@@ -5,6 +5,19 @@ Open items, known limitations, and deferred work. Items are grouped by phase and
 
 ---
 
+## TAG_TO_ENTITY migrated to tag_mappings.yaml [DONE — April 2026]
+
+Previously the `TAG_TO_ENTITY` dict in `graph/semantic/entity_mapper.py` hardcoded the
+product_line → entity mapping (all current values → `line_of_business`). Migrated to a
+new `product_line_to_entity` block in `ontology/tag_mappings.yaml` so all tag-derived
+mappings now live in one governed file: `tag_to_lineage_layer`, `tag_to_product_line`,
+and `product_line_to_entity`.
+
+This closes the governance gap where adding a new product line required edits in two
+places (the mapping in tag_mappings.yaml plus the binding in entity_mapper.py).
+
+---
+
 ## product_line_segmentation required_tags naming mismatch [FIXED — April 2026]
 
 `ontology/primitives.yaml` declared `required_tags: [eupi, d_o, general_aviation, contingency]`

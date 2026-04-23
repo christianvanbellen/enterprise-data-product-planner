@@ -137,14 +137,17 @@ the phase that reads them.
 
 ### `ontology/tag_mappings.yaml`
 
-**Read by:** `DbtMetadataAdapter` at module load (Phase 1)
+**Read by:** `DbtMetadataAdapter` at module load (Phase 1) for the first two blocks;
+`EntityMapper` at module load (Phase 3) for the third block.
 
-**What it controls:** Two mappings applied to every dbt model's tag list during ingestion:
+**What it controls:** Three related mappings that together govern how raw dbt tags
+translate into structured asset metadata and entity bindings.
 
-`tag_to_lineage_layer` — maps each dbt tag to a lineage-layer string. Every matching tag
-is collected into the asset's `lineage_layers` list (in tag order, deduplicated), so an
-asset tagged `['hx', 'bookends']` yields `['historic_exchange', 'conformed_bookends']`.
-`_infer_table_type()` in Phase 5 scans the whole list against its `_LAYER_TO_TYPE` table.
+**Block 1 — `tag_to_lineage_layer`** — maps each dbt tag to a lineage-layer string.
+Every matching tag is collected into the asset's `lineage_layers` list (in tag order,
+deduplicated), so an asset tagged `['hx', 'bookends']` yields
+`['historic_exchange', 'conformed_bookends']`. `_infer_table_type()` in Phase 5 scans
+the whole list against its `_LAYER_TO_TYPE` table.
 
 | Tag | lineage_layer value | Table type inferred |
 |-----|--------------|---------------------|
@@ -156,8 +159,19 @@ asset tagged `['hx', 'bookends']` yields `['historic_exchange', 'conformed_booke
 | `bookends` | `conformed_bookends` | (composition-based) |
 | `semi_conformed` | `semi_conformed_mart` | (composition-based) |
 
-`tag_to_product_line` — maps a dbt tag to a `product_lines` entry. Used by
-`product_line_segmentation` primitive matching in Phase 4 (tag-based, not column-based).
+**Block 2 — `tag_to_product_line`** — maps a dbt tag to a `product_lines` entry on
+the asset. Used by `product_line_segmentation` primitive matching in Phase 4 (tag-based,
+not column-based). Populates `asset.product_lines` with the mapped value (not the raw tag).
+
+**Block 3 — `product_line_to_entity`** — maps each product_line value to a semantic
+entity label. `EntityMapper` in Phase 3 uses this as Signal 3 of entity binding: every
+product-line-tagged asset gets an `EntityCandidate` for the mapped entity (`line_of_business`
+for all current values) with confidence 0.6. This can promote an asset to a
+`BusinessEntityNode` binding even when column-signature scoring is weak.
+
+**Sync requirement between blocks 2 and 3:** every value on the right-hand side of
+`tag_to_product_line` should appear as a key in `product_line_to_entity`. Missing entries
+silently drop Signal 3 for that product line.
 
 ---
 

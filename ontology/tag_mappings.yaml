@@ -23,3 +23,19 @@ tag_to_lineage_layer:
   source: source_table
   bookends: conformed_bookends
   semi_conformed: semi_conformed_mart
+
+# product_line (mapped value) → ontology entity label
+# Read by: EntityMapper at module load (Phase 3)
+# Effect: drives Signal 3 of entity binding. An asset whose product_lines list contains
+#         any key below gets an EntityCandidate for the mapped entity with confidence 0.6,
+#         which can promote the asset to a BusinessEntityNode binding even when
+#         column-signature scoring is weak.
+# Sync: every value in the right-hand side of tag_to_product_line above should appear
+#       as a key here.
+product_line_to_entity:
+  european_professional_indemnity: line_of_business
+  directors_and_officers:          line_of_business
+  general_aviation:                line_of_business
+  cash_in_transit_and_specie:      line_of_business
+  contingency:                     line_of_business
+  digital_platform:                line_of_business
