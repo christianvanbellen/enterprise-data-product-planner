@@ -1,4 +1,5 @@
 # domain_keywords.yaml — keyword → business domain assignment (Phase 1)
+#
 # Read by: DbtMetadataAdapter at module load.
 # Effect: each dbt model's name, description, tags, and column names are scanned against
 #         these keyword lists. Each domain gets a match-strength score weighted by where
@@ -7,38 +8,224 @@
 #         their raw scores populate asset.domain_scores. This drives BELONGS_TO_DOMAIN
 #         edge confidence in Phase 3 and domain colour coding in the graph explorer.
 #         See _infer_domains in ingestion/adapters/dbt_metadata.py for the exact formula.
-# Known gap: distribution domain is under-captured. Candidate additions:
-#   coverholder, mga, binder, lineslip, delegated, facility_fee
-#   — review context before adding (e.g. "facility" may mean Lloyd's facility or a building).
-#   See docs/phase3_design_brief.md — Distribution domain gap section.
+#
+# Last reviewed against: research_log/domain_taxonomy/v2_2026-04-23_fab12dbc.md
+# Reference framework:   reference_frameworks/commercial_specialty_pc.md (synthesised —
+#                        re-curate against an authoritative internal source when available).
+# See docs/domain_taxonomy_workflow.md for the full refresh workflow.
+#
+# Curator decisions applied (from v2 open questions):
+#   Q1  kept `profitability` key rather than renaming to `finance_profitability` —
+#       minimises downstream churn, and the warehouse has no true GL/accounting assets.
+#   Q9  lines of business (contingency, d_o, eu_pi, etc.) stay in ontology/tag_mappings.yaml
+#       as `product_line` dimension; they are NOT folded into domain keywords.
+#   data_quality  not added as a domain — conflates asset role with business function.
+#                 landing/raw/bad_records assets stay unassigned (< 5 assets affected).
+#   Q10 this taxonomy inherits from a synthesised reference; confirm against an
+#       authoritative internal source before treating as final.
+#
+# Known limitations (from v2 coverage analysis):
+#   operations, reserving, reinsurance, compliance — essentially absent from the
+#   current warehouse. Domains are retained for schema completeness but will match
+#   few or zero assets until a complementary data source is ingested.
 
-pricing:
-  - premium
-  - rate
-  - pricing
-  - elr
-  - commission
-  - rarc
-
-profitability:
-  - profitability
-  - sold_to
-  - modtech
-  - tech_gnwp
-
-underwriting:
-  - underwriter
-  - quote
-  - coverage
-  - policyholder
+# ────────────────────────────────────────────────────────────────────────────────
+# Value chain — new business → in-force → loss
+# ────────────────────────────────────────────────────────────────────────────────
 
 distribution:
+  # Channel identity and distribution economics: brokers, coverholders, MGAs,
+  # binding authorities, delegated-authority bordereaux, line-slips.
+  # `branch` removed (too geographically ambiguous; see v2).
   - broker
+  - brokerage
+  - commission         # shared with pricing — commission as rating input
+  - coverholder
+  - mga
+  - binder
+  - binding_authority
+  - lineslip
+  - line_slip
+  - delegated
+  - bordereau
+  - bordereaux
+  - umr                # unique market reference
+  - submission
   - channel
-  - branch
+
+underwriting:
+  # Risk selection and bind lifecycle; policyholder identity and risk characteristics;
+  # coverage terms. Quote assets legitimately double-match pricing — tiebreaker on
+  # total keyword hits handles primary.
+  - underwriter
+  - underwriting
+  - uw
+  - quote
+  - bind
+  - bound
+  - coverage
+  - sub_coverage
+  - policyholder
+  - insured
+  - new_renewal
+  - inception_date
+  - expiry_date
+  - limit
+  - excess
+  - deductible
+  - appetite
+  - declined
+
+pricing:
+  # Technical rate-making, rate adequacy, rate change, loadings, ELR.
+  # `modtech` and `tech` moved here from profitability (v2 diff) — these are
+  # technical/pricing measures that appeared in profitability tables only for
+  # decomposition. `inflation` moved here from portfolio_monitoring — it's a
+  # rating input (claims_inflation, loss_cost_inflation), not a drift metric.
+  # `rating` chosen (not `rating_factors`) per v2 open question Q5.
+  - pricing
+  - premium
+  - rate
+  - rate_change
+  - layer_pricing
+  - rating
+  - elr
+  - elc
+  - tech               # anchors tech_*, tech_elc, tech_ggwp
+  - modtech
+  - rarc
+  - burn_rate
+  - loss_cost
+  - loadings
+  - discount
+  - base_rate
+  - adequacy
+  - gglr
+  - gnlr
+  - dev_pattern
+  - inflation
+
+exposure_management:
+  # Exposure measurement, aggregation, catastrophe, concentration.
+  # Note: v2 flagged `our_share_pct*` and `london_order_percentage` as Lloyd's
+  # subscription shares, NOT reinsurance cessions — they are not represented here.
+  - exposure
+  - exposure_model
+  - regional_exposure
+  - aggregation
+  - aggregate
+  - concentration
+  - catastrophe
+  - pml
+  - rds                # realistic disaster scenario
+  - realistic_disaster
+  - perils
+
+operations:
+  # In-force servicing: endorsements, MTAs, cancellations, renewal processing.
+  # Warehouse signal is ~zero today — placeholder domain pending operational
+  # data source.
+  - endorsement
+  - mta
+  - mid_term
+  - cancellation
+  - operational
+  - servicing
+  - renewal_processing
+  - policy_status
+
+claims:
+  # FNOL → closure: notifications, case reserves, paid, indemnity split.
+  # Note: much of what looks like "claims" in this warehouse is claims-experience
+  # used as pricing input (e.g. `gglr_incurred`); assets named `*_claims_*`
+  # should primary-match claims, with pricing as secondary.
+  - claim
+  - claims
+  - fnol
+  - incurred
+  - paid
+  - case_reserve
+  - indemnity
+  - subrogation
+  - recovery           # shared with reinsurance
+  - adjuster
+  - specified_loss
+  - specific_loss
+  - claim_experience
+  - claims_experience
+  - fraud
+  - loss               # low-precision; kept as weak signal
+
+reserving:
+  # Actuarial IBNR, ultimate loss estimation, LDFs, BF/Chain Ladder.
+  # Warehouse signal is ~zero today — placeholder domain.
+  - ibnr
+  - ultimate           # shared with pricing (`burn_rate_ultimate`, `gglr_ultimate`)
+  - ldf
+  - bornhuetter
+  - bf_ultimate
+  - chain_ladder
+  - reserve
+  - reserving
+  - triangle
+
+reinsurance:
+  # Inward/outward treaties, facultative, retrocession, recoveries.
+  # Warehouse signal is ~zero today. `our_share_pct` et al. are Lloyd's
+  # subscription shares, NOT cessions — do NOT add `share` as a keyword.
+  - reinsurance
+  - reinsurer
+  - treaty
+  - facultative
+  - cession
+  - ceded
+  - retrocession
+  - retro
+  - reinstatement
+  - xol
+  - quota_share
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Financial / cross-cutting
+# ────────────────────────────────────────────────────────────────────────────────
+
+profitability:
+  # Accounting/P&L view: sold vs plan, P&L decomposition, result attribution.
+  # `modtech` and `tech_gnwp` moved out — see pricing.
+  - profitability
+  - profitability_measures
+  - sold_to
+  - sold_ggwp
+  - sold_gnwp
+  - target_to_plan
+  - combined_ratio
+  - loss_ratio
+  - expense_ratio
 
 portfolio_monitoring:
-  - inflation
-  - change
+  # Cross-cutting roll-up: KPI drift, concentration, rate-change trending.
+  # `inflation` and standalone `change` removed — too broad. Replaced with
+  # specific column-family tokens (change_in, breadth_of_cover_change).
   - monitoring
+  - dashboard
+  - drift
   - expiring
+  - retention
+  - portfolio
+  - benchmark
+  - change_in
+  - breadth_of_cover_change
+  - trend
+
+compliance:
+  # Sanctions, conduct, regulatory reporting (SII, IFRS 17).
+  # Warehouse signal is ~zero today — placeholder domain.
+  - sanctions
+  - conduct
+  - solvency
+  - sii
+  - qrt
+  - sfcr
+  - gdpr
+  - regulatory
+  - compliance
