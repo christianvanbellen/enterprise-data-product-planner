@@ -241,6 +241,12 @@ strong or stacked evidence).
 Tuning: add or remove keywords here to change which assets match. Scoring weights
 live in `_DOMAIN_FIELD_WEIGHTS` in `ingestion/adapters/dbt_metadata.py`.
 
+**How to refresh this taxonomy responsibly:** don't just edit this file in
+isolation. The full workflow — audit → reference-anchored research → curated
+YAML edit — is documented in `docs/domain_taxonomy_workflow.md`. Supporting
+scripts: `scripts/taxonomy_audit.py` (deterministic health report) and
+`scripts/research_domain_taxonomy.py` (LLM-assisted, out-of-pipeline).
+
 **Format:** `{ domain_name: [keyword, ...] }` — substring match, case-insensitive.
 
 **Known gap:** The `distribution` domain is under-captured — candidate additions include

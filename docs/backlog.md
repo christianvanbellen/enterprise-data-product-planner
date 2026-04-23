@@ -214,11 +214,23 @@ updates the entry in place. The index always contains exactly one entry per init
 
 ## Phase 3 — Deferred items
 
+- **Domain taxonomy is heuristic, not anchored to an external reference.** The 5
+  domains in `ontology/domain_keywords.yaml` were seeded in the pre-implementation
+  design brief without a MECE analysis. Current audit (April 2026) shows 17% of
+  assets unassigned, 29% with tied primary, and 10 of 20 keywords are "dead"
+  (match zero assets). The workflow for fixing this is now documented in
+  `docs/domain_taxonomy_workflow.md` — audit via `scripts/taxonomy_audit.py`,
+  research via `scripts/research_domain_taxonomy.py` against a reference framework
+  in `ontology/reference_frameworks/`, curate by hand. Populating the Lloyd's MDC
+  (or alternative) reference file is the prerequisite before a defensible refresh.
+
 - **Distribution domain keyword gap** — `facility`, `master_umr_lineslip_binder`,
   `coverholder`, `mga`, `binder`, `lineslip` are present in wide assets (`hx_do_quote`,
   85 columns) but absent from the `distribution` keyword list. Adding them would
   significantly raise distribution's apparent footprint in the graph. Requires review
   of what `facility` means in context (Lloyd's facility vs. a building) before committing.
+  Subsumed by the taxonomy-refresh workflow above — a full research pass should
+  resolve this alongside claims / reinsurance / reserving gaps.
 
 ---
 

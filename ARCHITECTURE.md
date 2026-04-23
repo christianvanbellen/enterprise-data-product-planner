@@ -245,7 +245,16 @@ See `docs/backlog.md` for full remediation paths.
 
 ## LLM usage
 
-The system calls an LLM exactly once per initiative in Phase 5. Everything else is deterministic.
+The **pipeline** calls an LLM exactly once per initiative in Phase 5. Everything else in
+Phases 1–5 is deterministic.
+
+There is one additional LLM call site, but it is **not** part of the pipeline:
+`scripts/research_domain_taxonomy.py`. This script produces versioned research briefs
+in `ontology/research_log/domain_taxonomy/` that a human reads and manually curates
+into `ontology/domain_keywords.yaml`. It never runs automatically, never mutates
+configuration, and its output is not consumed by any downstream phase. The design
+explicitly keeps taxonomy authoring out of the hot path so that pipeline reruns
+remain reproducible. See `docs/domain_taxonomy_workflow.md`.
 
 **What the LLM receives (per call):**
 - Full `SpecDocument` JSON serialisation

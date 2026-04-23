@@ -296,12 +296,15 @@ enterprise-data-product-planner/
 │   ├── semantic/           # Phase 3: ConformedFieldBinder, entity/domain binding
 │   ├── opportunity/        # Phase 4: PRIMITIVE_DEFINITIONS, planner, gap analyser
 │   └── spec/               # Phase 5: SpecAssembler, SpecRenderer, SpecLog
-├── ontology/               # YAML controlled vocabularies
+├── ontology/               # YAML controlled vocabularies + research inputs
 │   ├── initiative_research.yaml    # 19 initiatives with research citations
 │   ├── insurance_entities.yaml     # 10 entity definitions
 │   ├── gap_types.yaml              # 9 gap type definitions
 │   ├── relationship_types.yaml     # All edge types by layer
-│   └── tag_mappings.yaml           # Product line and lineage layer tags
+│   ├── tag_mappings.yaml           # Product line and lineage layer tags
+│   ├── domain_keywords.yaml        # Domain taxonomy (hand-curated)
+│   ├── reference_frameworks/       # Authoritative external taxonomies (grounding)
+│   └── research_log/               # Versioned LLM-research output (read-only log)
 ├── scripts/                # CLI entry points (Typer + Rich)
 │   ├── run_phase1.py       # Ingestion
 │   ├── run_phase2.py       # Structural compilation
@@ -311,7 +314,9 @@ enterprise-data-product-planner/
 │   ├── generate_mock_data.py       # Synthetic data for demos (seed=42)
 │   ├── demo_pricing_adequacy.py    # Streamlit pricing adequacy demo
 │   ├── validate_graph.py           # 7 structural correctness checks
-│   └── query_graph.py              # 4 analytical queries
+│   ├── query_graph.py              # 4 analytical queries
+│   ├── taxonomy_audit.py           # Deterministic domain-taxonomy health report
+│   └── research_domain_taxonomy.py # LLM-assisted taxonomy research (out-of-pipeline)
 ├── tests/                  # pytest + hypothesis test suite (303 tests)
 │   ├── ingestion/          # Phase 1 adapter and contract tests
 │   ├── graph/              # Phases 2–4 compiler and opportunity tests
@@ -345,6 +350,7 @@ enterprise-data-product-planner/
 | `docs/phase4_opportunity_layer.md` | Capability primitives, initiative portfolio, readiness model, gap analysis, graph explorer visual encoding | April 2026 |
 | `docs/phase5_spec_generator.md` | SpecDocument schema (incl. DataRequisite, JoinAssessment, OutputStructure), LLM policy, dimensional role inference, cost model, CLI usage | April 2026 |
 | `docs/phase6_architecture_alignment.md` | Architecture alignment report design, pricing_decomposition case study, output artefacts | April 2026 |
+| `docs/domain_taxonomy_workflow.md` | How to refresh `domain_keywords.yaml` against a reference framework: audit, research, curate cycle; LLM research is out-of-pipeline and versioned | April 2026 |
 | `docs/backlog.md` | Deferred items, known limitations, open schema gaps | April 2026 |
 | `docs/artifacts/dbt_metadata_spec.md` | Expected dbt manifest JSON structure and version compatibility | April 2026 |
 | `docs/artifacts/conformed_schema_spec.md` | Conformed schema JSON structure, adapter behaviour, and the pricing_component gap | April 2026 |
