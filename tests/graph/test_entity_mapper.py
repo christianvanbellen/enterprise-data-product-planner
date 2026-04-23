@@ -8,7 +8,7 @@ from ingestion.contracts.asset import CanonicalAsset, CanonicalColumn, Provenanc
 from ingestion.contracts.bundle import CanonicalBundle
 from ingestion.contracts.business import CanonicalBusinessTerm
 from graph.semantic.conformed_binder import ConformedFieldBinder, ConformedBindingResult
-from graph.semantic.entity_mapper import EntityMapper, DIMENSION_ENTITY_BINDINGS
+from graph.semantic.entity_mapper import EntityMapper
 
 BUNDLE_PATH = Path("output/bundle.json")
 
@@ -66,45 +66,21 @@ def golden_candidates(golden_bundle):
 
 
 # ------------------------------------------------------------------ #
-# DIMENSION_ENTITY_BINDINGS loads from tag_mappings.yaml               #
+# Signal 3 (tag-dimension entity binding) was removed April 2026.      #
+# Tags still populate asset.tag_dimensions for display/filter but no   #
+# longer drive entity candidates. No regression test should assert     #
+# that a tag alone produces an entity candidate.                       #
 # ------------------------------------------------------------------ #
 
-def test_dimension_entity_bindings_loaded_from_yaml():
-    """product_line dimension must have entity bindings loaded from YAML."""
-    assert "product_line" in DIMENSION_ENTITY_BINDINGS
-    product_bindings = DIMENSION_ENTITY_BINDINGS["product_line"]
-    # All six product_line values should map to line_of_business
-    assert product_bindings.get("european_professional_indemnity") == "line_of_business"
-    assert product_bindings.get("directors_and_officers") == "line_of_business"
-    assert product_bindings.get("digital_platform") == "line_of_business"
-
-
-# ------------------------------------------------------------------ #
-# Tag-based product line signal → line_of_business                    #
-# ------------------------------------------------------------------ #
-
-def test_eupi_assets_get_line_of_business_entity():
-    """Assets with product_line 'european_professional_indemnity' → entity 'line_of_business'."""
-    asset = _asset("asset_eupi_1", "ll_eupi_test",
-                   product_lines=["european_professional_indemnity"])
-    bundle = CanonicalBundle(assets=[asset], columns=[], lineage_edges=[],
-                             business_terms=[], metadata={})
-    candidates = EntityMapper().map(bundle, {})
-    assert any(c.entity_label == "line_of_business" and c.asset_id == "asset_eupi_1"
-               for c in candidates), "Expected line_of_business candidate for eupi asset"
-
-
-def test_tag_signal_uses_confidence_0_6():
-    """Tag-only signal should produce confidence = 0.6."""
-    asset = _asset("asset_t1", "test_do",
+def test_tag_alone_produces_no_entity_candidate():
+    """An asset with only tag data and no other signal must not produce any
+    entity candidate — confirms Signal 3 is gone."""
+    asset = _asset("asset_tag_only", "generic_name",
                    product_lines=["directors_and_officers"])
     bundle = CanonicalBundle(assets=[asset], columns=[], lineage_edges=[],
                              business_terms=[], metadata={})
     candidates = EntityMapper().map(bundle, {})
-    lob = next((c for c in candidates if c.entity_label == "line_of_business"), None)
-    assert lob is not None
-    assert lob.confidence == pytest.approx(0.6)
-    assert "tag_product_line" in lob.signal_sources
+    assert not any(c.asset_id == "asset_tag_only" for c in candidates)
 
 
 # ------------------------------------------------------------------ #
@@ -239,8 +215,10 @@ def test_asset_with_no_signal_produces_no_candidate():
 # Signal merging: same entity from two sources → max confidence        #
 # ------------------------------------------------------------------ #
 
-def test_same_entity_two_sources_takes_max_confidence():
-    """Conformed binding 0.8 and tag signal 0.6 both → 'coverage': result is 0.8."""
+def test_conformed_binding_survives_with_tag_data_present():
+    """A conformed binding should produce a coverage candidate regardless of whether
+    the asset also carries product_line tags — tags no longer contribute to entity
+    mapping (Signal 3 removed)."""
     asset = _asset("asset_merge", "coverage_mart",
                    product_lines=["general_aviation"])
     binding = ConformedBindingResult(
@@ -249,19 +227,18 @@ def test_same_entity_two_sources_takes_max_confidence():
         overlap_score=0.8,
         matched_fields=["primary_coverage"],
         missing_fields=[],
-        confidence=0.8,
+        confidence=1.0,
     )
     bundle = CanonicalBundle(assets=[asset], columns=[], lineage_edges=[],
                              business_terms=[], metadata={})
     candidates = EntityMapper().map(bundle, {"coverage": [binding]})
     cov = next((c for c in candidates if c.entity_label == "coverage"), None)
     assert cov is not None
-    assert cov.confidence == pytest.approx(0.8)
+    assert cov.confidence == pytest.approx(1.0)
     assert "conformed_binding" in cov.signal_sources
-    # tag_product_line now maps to line_of_business, not coverage — so both emitted
-    lob = next((c for c in candidates if c.entity_label == "line_of_business"), None)
-    assert lob is not None
-    assert "tag_product_line" in lob.signal_sources
+    # Tag data does NOT add a candidate
+    assert not any(c.entity_label == "line_of_business" for c in candidates)
+    assert not any(s.startswith("tag_") for c in candidates for s in c.signal_sources)
 
 
 # ------------------------------------------------------------------ #

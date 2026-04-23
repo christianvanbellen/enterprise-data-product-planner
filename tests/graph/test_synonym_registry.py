@@ -8,10 +8,13 @@ from graph.semantic.ontology_loader import SynonymRegistry
 # allowed_entities()                                                   #
 # ------------------------------------------------------------------ #
 
-def test_allowed_entities_contains_all_ten():
+def test_allowed_entities_contains_all_current():
+    """After the April 2026 entity review, line_of_business was removed when
+    Signal 3 (tag-dimension entity binding) was dropped — product-line is a
+    classification, not a business noun. The current whitelist is 9 entities."""
     entities = SynonymRegistry.allowed_entities()
     expected = {
-        "policyholder", "broker", "line_of_business", "claim",
+        "policyholder", "broker", "claim",
         "coverage", "policy", "pricing_component", "profitability_component",
         "exposure", "underwriter",
     }
@@ -24,8 +27,9 @@ def test_allowed_entities_contains_claim():
     assert "claim" in SynonymRegistry.allowed_entities()
 
 
-def test_allowed_entities_contains_line_of_business():
-    assert "line_of_business" in SynonymRegistry.allowed_entities()
+def test_line_of_business_no_longer_an_allowed_entity():
+    """Regression guard: line_of_business was removed with Signal 3."""
+    assert "line_of_business" not in SynonymRegistry.allowed_entities()
 
 
 def test_allowed_entities_does_not_contain_quote():

@@ -36,7 +36,6 @@ from graph.semantic.conformed_binder import ConformedFieldBinder
 from graph.semantic.entity_mapper import (
     ASSET_NAME_PATTERNS,
     CONFORMED_GROUP_TO_ENTITY,
-    DIMENSION_ENTITY_BINDINGS,
     EntityMapper,
     MIN_CONFIDENCE,
 )

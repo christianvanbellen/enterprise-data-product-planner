@@ -78,14 +78,18 @@ def test_matched_plus_missing_equals_all_group_fields(golden_bundle, golden_resu
 
 
 # ------------------------------------------------------------------ #
-# Confidence equals overlap_score                                      #
+# Confidence is binary 1.0 once the threshold is met                   #
 # ------------------------------------------------------------------ #
 
-def test_confidence_equals_overlap_score(golden_results):
+def test_confidence_is_one_once_threshold_met(golden_results):
+    """Signal 1 is binary: any asset admitted past OVERLAP_THRESHOLD gets 1.0.
+    The graded overlap_score stays as evidence on the record but does not
+    modulate confidence, so Signal 1 always outranks Signal 2/4 cleanly."""
     for group, bindings in golden_results.items():
         for b in bindings:
-            assert b.confidence == b.overlap_score, (
-                f"confidence {b.confidence} != overlap_score {b.overlap_score}"
+            assert b.confidence == 1.0, (
+                f"binding {b.asset_id}/{group} has confidence {b.confidence} — "
+                f"Signal 1 should be 1.0 once admitted"
             )
 
 

@@ -30,10 +30,10 @@ ENTITY_GROUPS, OVERLAP_THRESHOLD = _load_entity_groups()
 class ConformedBindingResult:
     asset_id: str
     entity_group: str
-    overlap_score: float        # 0.0–1.0
+    overlap_score: float        # 0.0–1.0; kept as evidence, not used as confidence
     matched_fields: List[str]   # fields that matched
     missing_fields: List[str]   # group fields not in asset
-    confidence: float           # = overlap_score (direct, no adjustment)
+    confidence: float           # 1.0 once overlap_score >= OVERLAP_THRESHOLD
 
 
 class ConformedFieldBinder:
@@ -76,6 +76,13 @@ class ConformedFieldBinder:
                 overlap_score = len(matched) / len(g_fields)
 
                 if overlap_score >= OVERLAP_THRESHOLD:
+                    # Confidence is binary once the admission threshold is met —
+                    # the conformed schema is an act of human governance; either
+                    # the asset passes the bar to be considered a binding, or it
+                    # doesn't. The graded overlap_score stays on the record as
+                    # evidence, but the confidence itself is 1.0 so downstream
+                    # consumers can cleanly separate Signal-1 (governed, 1.0)
+                    # from Signal-2/4 (discovered, ≤ 0.8).
                     results[group_name].append(
                         ConformedBindingResult(
                             asset_id=asset.internal_id,
@@ -83,7 +90,7 @@ class ConformedFieldBinder:
                             overlap_score=overlap_score,
                             matched_fields=matched,
                             missing_fields=missing,
-                            confidence=overlap_score,
+                            confidence=1.0,
                         )
                     )
 

@@ -1,17 +1,21 @@
-# tag_mappings.yaml — dbt tag → dimensional classification (Phase 1 + Phase 3)
+# tag_mappings.yaml — dbt tag → dimensional classification (Phase 1)
 #
 # Read by:
 #   - DbtMetadataAdapter at module load (Phase 1) — consumes every dimension's tag_mappings
 #     to populate CanonicalAsset.tag_dimensions
-#   - EntityMapper at module load (Phase 3) — consumes entity_bindings to drive Signal 3
-#     entity binding
 #
 # Each dimension is a self-contained block under `dimensions:`. Adding a new dimension
 # (e.g. region, business_unit) requires only a YAML edit — no Python change. A dimension
 # has:
 #   tag_mappings     — (required) raw dbt tag → mapped dimension value
-#   entity_bindings  — (optional) dimension value → ontology entity label for Phase 3
 #   description      — (optional) human-readable explanation
+#
+# Note: a dimension's values used to drive entity binding via an optional
+# `entity_bindings:` sub-block, but that signal (Signal 3 in EntityMapper) was
+# removed in April 2026 — product-line / class-of-business classifications are
+# orthogonal to business entities and were distorting the primary-count
+# distribution. Tag data remains on each asset as asset.tag_dimensions for
+# filtering/display and continues to inform domain inference via DbtMetadataAdapter.
 #
 # Project-specific consumers (notably _infer_table_type() in graph/spec/assembler.py) may
 # still hardcode dimension names and values. Those cases are marked with comments in the
@@ -34,7 +38,7 @@ dimensions:
       semi_conformed: semi_conformed_mart
 
   product_line:
-    description: "Business line of business — drives entity binding and tag-based primitive matching"
+    description: "Business line of business — drives tag-based primitive matching and domain inference"
     tag_mappings:
       eupi:                                       european_professional_indemnity
       d_o:                                        directors_and_officers
@@ -42,10 +46,3 @@ dimensions:
       london_cash_in_transit_and_general_specie:  cash_in_transit_and_specie
       contingency:                                contingency
       dp:                                         digital_platform
-    entity_bindings:
-      european_professional_indemnity: line_of_business
-      directors_and_officers:          line_of_business
-      general_aviation:                line_of_business
-      cash_in_transit_and_specie:      line_of_business
-      contingency:                     line_of_business
-      digital_platform:                line_of_business

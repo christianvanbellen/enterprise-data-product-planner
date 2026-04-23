@@ -1,4 +1,17 @@
-"""EntityMapper — combines four signal sources to assign BusinessEntity candidates to assets."""
+"""EntityMapper — combines three signal sources to assign BusinessEntity candidates to assets.
+
+Signals today:
+    1. Conformed-schema binding (ConformedFieldBinder output).
+    2. Column-signature scoring against SynonymRegistry.ENTITY_SIGNATURE_COLUMNS.
+    4. Asset-name substring patterns.
+
+Signal 3 (tag-dimension entity binding) was removed in April 2026 after the
+entity-audit review: classifications like `product_line` are orthogonal to
+business entities (line_of_business is a slice, not a noun), and treating
+them as entity signals distorted the primary-count distribution. Tag data
+remains on each asset as asset.tag_dimensions for filtering and display,
+and tags continue to contribute to domain inference in Phase 1.
+"""
 
 import warnings
 from dataclasses import dataclass, field
@@ -12,29 +25,7 @@ from graph.semantic.conformed_binder import ConformedBindingResult
 from graph.semantic.ontology_loader import SynonymRegistry
 
 _ONTOLOGY_DIR = Path(__file__).parent.parent.parent / "ontology"
-_TAG_MAPPINGS_PATH = _ONTOLOGY_DIR / "tag_mappings.yaml"
 _ENTITY_BINDINGS_PATH = _ONTOLOGY_DIR / "entity_bindings.yaml"
-
-
-def _load_dimension_entity_bindings() -> Dict[str, Dict[str, str]]:
-    """Load per-dimension entity bindings from ontology/tag_mappings.yaml.
-
-    Returns a dict keyed by dimension name (e.g. "product_line") containing that
-    dimension's {value → entity_label} map. Dimensions without an entity_bindings
-    block are omitted.
-
-    Example: {"product_line": {"directors_and_officers": "line_of_business", ...}}
-    """
-    try:
-        raw = yaml.safe_load(_TAG_MAPPINGS_PATH.read_text(encoding="utf-8"))
-        result: Dict[str, Dict[str, str]] = {}
-        for dim_name, dim_spec in (raw.get("dimensions") or {}).items():
-            bindings = (dim_spec or {}).get("entity_bindings")
-            if bindings:
-                result[dim_name] = dict(bindings)
-        return result
-    except Exception:
-        return {}
 
 
 def _load_entity_bindings_config() -> Dict[str, Any]:
@@ -49,10 +40,6 @@ CONFORMED_GROUP_TO_ENTITY: Dict[str, str] = dict(
     _ENTITY_BINDINGS_CONFIG.get("conformed_group_to_entity") or {}
 )
 
-# Loaded from ontology/tag_mappings.yaml: {dimension_name: {value: entity_label}}.
-# Edit that file's entity_bindings blocks to add or change Signal 3 bindings.
-DIMENSION_ENTITY_BINDINGS: Dict[str, Dict[str, str]] = _load_dimension_entity_bindings()
-
 # Loaded from ontology/entity_bindings.yaml.
 ASSET_NAME_PATTERNS: Dict[str, str] = dict(
     _ENTITY_BINDINGS_CONFIG.get("asset_name_patterns") or {}
@@ -62,7 +49,6 @@ _CONFIDENCE = _ENTITY_BINDINGS_CONFIG.get("confidence") or {}
 MIN_CONFIDENCE: float = float(_CONFIDENCE.get("min_threshold", 0.4))
 CONFLICT_THRESHOLD: float = float(_CONFIDENCE.get("conflict_threshold", 0.5))
 _SIGNAL_2_SCALE: float = float(_CONFIDENCE.get("signal_2_scale", 0.8))
-_SIGNAL_3_FLAT: float = float(_CONFIDENCE.get("signal_3_flat", 0.6))
 _SIGNAL_4_FLAT: float = float(_CONFIDENCE.get("signal_4_flat", 0.6))
 
 
@@ -136,18 +122,11 @@ class EntityMapper:
                      "signature_score",
                      {"signature_score": raw_score})
 
-        # ---- Signal 3: Tag-dimension entity bindings (confidence 0.6) ----
-        # Iterate every dimension that declared entity_bindings in tag_mappings.yaml.
-        # For each asset, every matching dimension value emits a 0.6-confidence candidate
-        # for the mapped entity.
-        for asset in bundle.assets:
-            for dim_name, bindings in DIMENSION_ENTITY_BINDINGS.items():
-                for value in asset.tag_dimensions.get(dim_name, []):
-                    entity_label = bindings.get(value)
-                    if entity_label:
-                        _add(asset.internal_id, entity_label, _SIGNAL_3_FLAT,
-                             f"tag_{dim_name}",
-                             {"dimension": dim_name, "value": value})
+        # ---- Signal 3: Tag-dimension entity bindings — removed April 2026 ----
+        # Product-line / class-of-business classifications are orthogonal to
+        # business entities. Tags remain available on each asset via
+        # asset.tag_dimensions and drive domain inference in Phase 1.
+        # See docs/phase3_design_brief.md and the entity-audit review.
 
         # ---- Signal 4: Asset name pattern (flat confidence) ----
         for asset in bundle.assets:

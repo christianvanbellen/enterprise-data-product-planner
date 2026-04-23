@@ -153,9 +153,14 @@ dimensions:
     description: "..."           # human-readable purpose
     tag_mappings:                # required — raw dbt tag → mapped value
       <raw_tag>: <mapped_value>
-    entity_bindings:             # optional — mapped_value → entity label for Phase 3 Signal 3
-      <mapped_value>: <entity_label>
 ```
+
+Note: an `entity_bindings:` sub-block was supported up to April 2026 to drive Phase 3
+Signal 3 (tag-dimension → BusinessEntity). That signal was removed — it had been
+creating `line_of_business` candidates for every tagged asset, distorting the
+entity-binding distribution. Product-line data now flows to domain inference (via
+Phase 1 tag scanning) and to tag-based primitive matching (Phase 4), both of which
+don't need an entity proxy.
 
 **Current dimensions (2):**
 
@@ -172,21 +177,21 @@ Consumed by `_infer_table_type()` in Phase 5 to classify assets as fact/dimensio
 | `bookends` | `conformed_bookends` | (composition-based) |
 | `semi_conformed` | `semi_conformed_mart` | (composition-based) |
 
-No `entity_bindings` block — this dimension does not feed Phase 3 Signal 3.
-
 **`product_line`** — Business line of business. Populates `asset.tag_dimensions["product_line"]`.
 Consumed by `CapabilityPrimitiveExtractor` in Phase 4 for tag-based primitive matching
-(`product_line_segmentation`) and by `EntityMapper` in Phase 3 Signal 3 via its
-`entity_bindings` block.
+(`product_line_segmentation`) and by `DbtMetadataAdapter` in Phase 1 as part of the tag
+field in domain inference. **No longer** drives entity binding — the tag-dimension
+→ entity signal was removed April 2026 (product-line is a classification, not a
+business noun).
 
-| Raw tag | Mapped value | Entity binding |
-|---------|-------------|----------------|
-| `eupi` | `european_professional_indemnity` | `line_of_business` |
-| `d_o` | `directors_and_officers` | `line_of_business` |
-| `general_aviation` | `general_aviation` | `line_of_business` |
-| `london_cash_in_transit_and_general_specie` | `cash_in_transit_and_specie` | `line_of_business` |
-| `contingency` | `contingency` | `line_of_business` |
-| `dp` | `digital_platform` | `line_of_business` |
+| Raw tag | Mapped value |
+|---------|-------------|
+| `eupi` | `european_professional_indemnity` |
+| `d_o` | `directors_and_officers` |
+| `general_aviation` | `general_aviation` |
+| `london_cash_in_transit_and_general_specie` | `cash_in_transit_and_specie` |
+| `contingency` | `contingency` |
+| `dp` | `digital_platform` |
 
 **Adding a new dimension (e.g. `region`):**
 
@@ -301,8 +306,11 @@ grain match computation.
 **What it is:** The registry of recognised semantic entity labels. When Phase 3 creates
 `BusinessEntityNode` objects, the entity labels must appear in this list.
 
-**Current entities (10):** `policyholder`, `broker`, `line_of_business`, `claim`, `coverage`,
-`policy`, `pricing_component`, `profitability_component`, `exposure`, `underwriter`
+**Current entities (9):** `policyholder`, `broker`, `claim`, `coverage`, `policy`,
+`pricing_component`, `profitability_component`, `exposure`, `underwriter`. `line_of_business`
+was removed in April 2026 when Signal 3 was dropped — product-line data stays on
+each asset's `tag_dimensions` and is surfaced via tag-based primitive matching, not as
+a BusinessEntityNode.
 
 **Effect of changes:**
 - Adding an entity here is a necessary but not sufficient step to activate it — you must

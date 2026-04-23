@@ -100,7 +100,12 @@ primitives:
     description: "New business vs renewal tracking with policyholder linkage"
 
   - id: product_line_segmentation
-    required_entities: [line_of_business, coverage]
+    # `line_of_business` was removed from required_entities in April 2026 when
+    # Signal 3 (tag-dimension entity binding) was dropped — product_line is a
+    # classification, not a business entity. This primitive already uses
+    # required_tag_dimension / required_tags (below) to match against the
+    # product_line tag dimension, which is the right mechanism.
+    required_entities: [coverage]
     # Tag-based matching. required_tag_dimension names which tag_dimensions key to
     # intersect against (here "product_line"); required_tags lists the expected values
     # for that dimension. Values must be the *mapped* dimension values from

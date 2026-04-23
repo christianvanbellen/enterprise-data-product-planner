@@ -134,26 +134,26 @@ entity_signatures:
     - expiring_exposure
 
 # ──────────────────────────────────────────────────────────────────────────
-# Signal 3: tag-dimension entity bindings
+# Signal 3: tag-dimension entity bindings — REMOVED April 2026
 # ──────────────────────────────────────────────────────────────────────────
-# NOT defined in this file. Signal 3 bindings live in ontology/tag_mappings.yaml
-# under each dimension's `entity_bindings:` block, co-located with the tag
-# mappings they depend on. Example:
+# The tag-dimension → entity binding was dropped after the entity-audit
+# review: classifications like product_line are orthogonal to business
+# entities. An asset being in the "EU PI" product line doesn't make the
+# asset a line_of_business in the noun sense — it means the asset is
+# classified under EU PI. Treating the classification as an entity distorted
+# the primary-count distribution (77 / 207 primary assignments landed on
+# line_of_business, drowning other entities).
 #
-#     dimensions:
-#       product_line:
-#         tag_mappings:
-#           eupi: european_professional_indemnity
-#           ...
-#         entity_bindings:               # ← Signal 3 lives here
-#           european_professional_indemnity: line_of_business
-#           ...
+# Tag data is NOT lost: it remains on each asset as asset.tag_dimensions,
+# surfaces in the explorer sidebar, and continues to drive domain inference
+# via DbtMetadataAdapter (tags weight 2.0 in _DOMAIN_FIELD_WEIGHTS).
 #
-# The split is deliberate: a dimension's tag mappings and its entity bindings
-# are co-dependent (you can't bind a value that doesn't exist as a mapping),
-# so keeping them together makes adding a new dimension a single-file edit.
-# This placeholder exists only so the numbering stays intact for readers of
-# this file.
+# If lines-of-business are later needed as first-class graph nodes (e.g.
+# "show me every asset in EU PI" queryable via an edge), the right design
+# is a separate LineOfBusinessNode + IS_IN_LINE edge in its own axis, NOT
+# a reinstatement of this signal on BusinessEntityNode.
+#
+# The numbering jump from 2 → 4 is preserved as a reminder of this history.
 
 # ──────────────────────────────────────────────────────────────────────────
 # Signal 4: substring in asset.normalized_name → entity label

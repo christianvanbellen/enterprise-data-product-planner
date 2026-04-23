@@ -64,7 +64,7 @@ by checking that the required entity groups and columns are present.
 | `profitability_decomposition` | profitability_component | sold_to_modtech, modtech_to_tech, sold_to_plan, target_to_plan | profitability |
 | `broker_attribution` | broker, policy | broker_primary, broker_code, brokerage_pct | distribution |
 | `renewal_tracking` | policy, policyholder | new_renewal, quote_id, inception_date, expiry_date | underwriting |
-| `product_line_segmentation` | line_of_business, coverage | *(tag-based: eupi, d_o, general_aviation, contingency)* | underwriting |
+| `product_line_segmentation` | coverage | *(tag-based: eupi, d_o, general_aviation, contingency)* | underwriting |
 | `exposure_structure` | exposure, coverage | exposure, limit_100, deductible_value, excess, policy_coverage_jurisdiction | underwriting |
 
 ### Primitive states
