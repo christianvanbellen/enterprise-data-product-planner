@@ -101,10 +101,18 @@ primitives:
 
   - id: product_line_segmentation
     required_entities: [line_of_business, coverage]
-    # Tag-based matching — no required_columns. Assets match if their product_lines tags
-    # intersect required_tags (from ontology/tag_mappings.yaml tag_to_product_line entries).
+    # Tag-based matching — no required_columns. Assets match if their product_lines list
+    # intersects required_tags. IMPORTANT: these values must be the *mapped* product_line
+    # strings (from the right-hand side of tag_to_product_line in tag_mappings.yaml),
+    # NOT the raw dbt tag names — asset.product_lines holds mapped values.
     required_columns: []
-    required_tags: [eupi, d_o, general_aviation, contingency]
+    required_tags:
+      - european_professional_indemnity
+      - directors_and_officers
+      - general_aviation
+      - cash_in_transit_and_specie
+      - contingency
+      - digital_platform
     supporting_domains: [underwriting]
     description: "Product line and class of business segmentation"
 

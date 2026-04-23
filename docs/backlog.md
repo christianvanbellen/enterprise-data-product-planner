@@ -5,6 +5,26 @@ Open items, known limitations, and deferred work. Items are grouped by phase and
 
 ---
 
+## product_line_segmentation required_tags naming mismatch [FIXED — April 2026]
+
+`ontology/primitives.yaml` declared `required_tags: [eupi, d_o, general_aviation, contingency]`
+for the `product_line_segmentation` primitive, but `asset.product_lines` contains the *mapped*
+values from `tag_to_product_line` — `european_professional_indemnity`, `directors_and_officers`,
+etc. The set intersection in `CapabilityPrimitiveExtractor` therefore silently dropped all
+`eupi`- and `d_o`-tagged assets; `general_aviation` and `contingency` happened to match only
+because they are self-mapped.
+
+Impact before fix: the primitive reported 44 supporting assets when it should have matched
+78–89. `product_line_performance_dashboard` carried an understated asset count in its spec.
+
+Fixed by updating `required_tags` to use the mapped product_line values and adding the two
+previously-excluded lines (`cash_in_transit_and_specie`, `digital_platform`) so the
+segmentation view covers the full product portfolio.
+
+After fix: 89 supporting assets (every product-line-tagged asset in the warehouse).
+
+---
+
 ## Lineage-layer tag loss [FIXED — April 2026]
 
 Previously `CanonicalAsset.lineage_layer` was `Optional[str]` populated by first-match over
