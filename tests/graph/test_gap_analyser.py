@@ -48,19 +48,13 @@ def golden_gaps(golden_primitives, golden_opportunities):
 # ------------------------------------------------------------------ #
 
 def test_gaps_are_produced(golden_gaps):
-    """At least one gap should be identified (broker_attribution < 0.9 maturity).
-    Gap threshold is 0.9 because the warehouse is well-covered overall;
-    primitives with missing columns (broker_code, sold_to_plan) are the gaps.
-    """
+    """At least one gap should be identified. Which specific primitive is a gap
+    depends on the current YAML-declared data gaps and the warehouse — the
+    test doesn't codify a specific primitive because the answer shifts as
+    the taxonomy and primitive catalogue evolve (e.g. after the April 2026
+    entity-research curation, `broker_attribution` became gap-free once the
+    dead `broker_code` column requirement was dropped)."""
     assert len(golden_gaps) >= 1, "Expected at least one gap"
-
-
-def test_broker_attribution_produces_gap(golden_gaps):
-    """broker_attribution has maturity 0.833 (missing broker_code) → gap."""
-    gap_prim_ids = {g.primitive_id for g in golden_gaps}
-    assert "broker_attribution" in gap_prim_ids, (
-        f"Expected broker_attribution gap. Gaps found: {sorted(gap_prim_ids)}"
-    )
 
 
 def test_each_gap_has_at_least_one_blocking_initiative(golden_gaps):

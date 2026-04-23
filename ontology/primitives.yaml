@@ -23,13 +23,17 @@
 primitives:
 
   - id: quote_lifecycle
-    required_entities: [policy, coverage]
+    # v1 curation: added `quote` to required_entities (quote_id is the
+    # warehouse bus key; a dedicated quote entity is more accurate than
+    # piggybacking on policy); swapped dead `policyholder_name` for
+    # `policy_is_quoted` which is a real signal column.
+    required_entities: [quote, policy, coverage]
     required_columns:
       - quote_id
       - inception_date
       - expiry_date
       - new_renewal
-      - policyholder_name
+      - policy_is_quoted
     supporting_domains: [underwriting]
     description: "End-to-end quote and policy lifecycle tracking"
 
@@ -48,14 +52,18 @@ primitives:
     # to promote it to CONFIRMED and unblock 7 initiatives. See ARCHITECTURE.md.
 
   - id: rate_change_monitoring
+    # v1 curation: added `rate_change` as the top-level measure (previously
+    # the primitive listed only the RARC decomposition terms and missed
+    # the headline rate_change column).
     required_entities: [pricing_component]
     required_columns:
+      - rate_change
       - gross_rarc
       - net_rarc
       - claims_inflation
       - breadth_of_cover_change
     supporting_domains: [portfolio_monitoring, pricing]
-    description: "Risk-adjusted rate change tracking across renewals"
+    description: "Per-quote risk-adjusted rate change tracking across renewals"
 
   - id: claims_experience
     required_entities: [claim]
@@ -69,28 +77,31 @@ primitives:
     description: "Historical claims development and loss ratios"
 
   - id: profitability_decomposition
+    # v1 curation: dropped absent `sold_to_plan` (documented data gap),
+    # swapped in `change_in_sold_to_modtech` which is present in the
+    # warehouse. Primitive now aligns required_columns with reality.
     required_entities: [profitability_component]
     required_columns:
       - sold_to_modtech
       - modtech_to_tech
-      - sold_to_plan
+      - change_in_sold_to_modtech
       - target_to_plan
     supporting_domains: [profitability]
     description: "Multi-layer profitability variance analysis"
-    # NOTE: sold_to_plan is absent from the warehouse — this primitive has maturity 3/4.
-    # See docs/backlog.md — sold_to_plan absent section.
 
   - id: broker_attribution
+    # v1 curation: dropped dead `broker_code` — never appears in warehouse.
     required_entities: [broker, policy]
     required_columns:
       - broker_primary
-      - broker_code
       - brokerage_pct
     supporting_domains: [distribution]
     description: "Broker and channel performance attribution"
 
   - id: renewal_tracking
-    required_entities: [policy, policyholder]
+    # v1 curation: added `quote` to required_entities — renewal logic
+    # reads from the quote record (quote_id is the shared key).
+    required_entities: [quote, policy, policyholder]
     required_columns:
       - new_renewal
       - quote_id
@@ -123,12 +134,45 @@ primitives:
     description: "Product line and class of business segmentation"
 
   - id: exposure_structure
-    required_entities: [exposure, coverage]
+    # v1 curation: added `layer` to required_entities (specialty business
+    # models exposure through layers). Replaced `limit_100` and
+    # `policy_coverage_jurisdiction` (both unclear presence) with
+    # `layer_limit` which is a real column.
+    required_entities: [exposure, coverage, layer]
     required_columns:
       - exposure
-      - limit_100
+      - layer_limit
       - deductible_value
       - excess
-      - policy_coverage_jurisdiction
     supporting_domains: [underwriting]
-    description: "Exposure, limit, deductible and jurisdiction structure"
+    description: "Exposure, limit, deductible and layer structure"
+
+  - id: layer_pricing
+    # v1 addition. Binds the *_layer_pricing / *_layers asset families
+    # currently unbound. Per-layer technical pricing.
+    required_entities: [layer, pricing_component]
+    required_columns:
+      - layer_id
+      - layer_limit
+      - tech_gnwp
+      - modtech_gnwp
+    supporting_domains: [pricing]
+    description: "Per-layer technical and model-technical pricing"
+
+  - id: portfolio_rate_monitoring
+    # v1 addition. Distinguishes the portfolio-level rate-monitoring
+    # roll-up from the per-quote `rate_change_monitoring` primitive.
+    required_entities: [pricing_component]
+    required_columns:
+      - rate_change
+      - gross_rarc
+      - net_rarc
+    required_tag_dimension: product_line
+    required_tags:
+      - european_professional_indemnity
+      - directors_and_officers
+      - general_aviation
+      - cash_in_transit_and_specie
+      - contingency
+    supporting_domains: [portfolio_monitoring, pricing]
+    description: "Portfolio-level rate-change drift across product lines"
