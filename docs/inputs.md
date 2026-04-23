@@ -54,7 +54,7 @@ EXTERNAL DATA INPUTS                          ONTOLOGY CONFIGURATION
 | Change to | Re-run from | LLM cost |
 |-----------|-------------|----------|
 | `dbt_metadata_enriched.json` / `conformed_schema.json` / `tag_mappings.yaml` / `domain_keywords.yaml` / `semantic_map.yaml` / `grain_keys.yaml` | Phase 1 → 5 | Yes (Phase 5 re-render) |
-| `entity_groups.yaml` / `insurance_entities.yaml` / `metric_patterns.yaml` | Phase 3 → 5 | Yes (Phase 5 re-render) |
+| `entity_groups.yaml` / `insurance_entities.yaml` / `entity_bindings.yaml` / `metric_patterns.yaml` | Phase 3 → 5 | Yes (Phase 5 re-render) |
 | `initiative_research.yaml` / `primitives.yaml` | Phase 4 → 5 | Yes (Phase 5 re-render) |
 | `delivery_heuristics.yaml` | Phase 5 only with `--force-render` | No (pre-rendered section) |
 | `_SYSTEM_PROMPT` in `renderer.py` | Phase 5 only with `--force-render` | Yes |
@@ -348,6 +348,44 @@ This is the highest-impact single edit in the pipeline.
 
 ---
 
+### `ontology/entity_bindings.yaml` *(migrated April 2026)*
+
+**Read by:** `EntityMapper` and `SynonymRegistry` at module load (Phase 3)
+
+**What it controls:** Unified configuration for the four-signal entity-mapping
+logic. Contains:
+
+- `confidence` — merger thresholds and per-signal weight multipliers
+  (`min_threshold`, `conflict_threshold`, `signal_2_scale`, `signal_3_flat`,
+  `signal_4_flat`).
+- `conformed_group_to_entity` — Signal 1: translates conformed-schema group
+  names (`ontology/entity_groups.yaml`) to ontology entity labels.
+- `entity_signatures` — Signal 2: per-entity set of column `normalized_name`s.
+  Used for overlap scoring and for IDENTIFIES-edge emission.
+- `asset_name_patterns` — Signal 4: substring in `asset.normalized_name`
+  → entity label.
+- `column_synonyms` — reference lookup used today only by
+  `tests/graph/test_synonym_registry.py`. Retained for now; revisit when
+  the entity-model research pass lands.
+
+Signal 3 (tag-dimension bindings) does NOT live here — it stays in
+`ontology/tag_mappings.yaml` under each dimension's `entity_bindings` block,
+because it's co-located with the tag mappings it depends on.
+
+**Effect of changes:**
+- Adding a column to `entity_signatures[<entity>]` → that column now
+  contributes to the entity's Signal-2 score AND becomes eligible for an
+  IDENTIFIES edge to the entity node.
+- Tuning `confidence` weights shifts the boundary between entities competing
+  on the same asset. `signal_2_scale` currently discounts signature scoring
+  relative to conformed binding; `signal_3_flat` / `signal_4_flat` are flat
+  because they're boolean signals (match or not).
+- Adding a row to `conformed_group_to_entity` requires the group name to
+  also appear in `entity_groups.yaml` AND in the conformed schema JSON as
+  a parent term.
+
+---
+
 ### `ontology/metric_patterns.yaml` *(migrated April 2026)*
 
 **Read by:** `SemanticGraphCompiler` at module load (Phase 3)
@@ -576,6 +614,7 @@ edit for changing spec style, tone, or section content across the full portfolio
 | `grain_keys.yaml` | ✓ | DbtMetadataAdapter | 1 |
 | `insurance_entities.yaml` | ✓ | OntologyLoader | 3 |
 | `entity_groups.yaml` | ✓ | ConformedFieldBinder | 3 |
+| `entity_bindings.yaml` | ✓ | EntityMapper, SynonymRegistry | 3 |
 | `metric_patterns.yaml` | ✓ | SemanticGraphCompiler | 3 |
 | `initiative_research.yaml` | ✓ | InitiativeArchetypeLibrary | 4, 5 |
 | `primitives.yaml` | ✓ | CapabilityPrimitiveExtractor | 4 |

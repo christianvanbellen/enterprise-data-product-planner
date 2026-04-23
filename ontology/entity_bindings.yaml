@@ -1,0 +1,173 @@
+# entity_bindings.yaml — Phase 3 entity-mapping configuration
+#
+# Read by:
+#   - EntityMapper (graph/semantic/entity_mapper.py) — confidence weights,
+#     conformed_group_to_entity, asset_name_patterns
+#   - SynonymRegistry (graph/semantic/ontology_loader.py) — entity_signatures,
+#     column_synonyms
+#
+# Each asset receives zero or more (entity_label, confidence) candidates from
+# four signal sources, which EntityMapper merges and resolves with the
+# thresholds below. See docs/inputs.md — entity_bindings.yaml section for the
+# end-to-end flow.
+
+# ──────────────────────────────────────────────────────────────────────────
+# Confidence weights
+# ──────────────────────────────────────────────────────────────────────────
+# These values were seeded heuristically; there is no empirical calibration
+# behind them yet (documented in the entity-model research backlog). Adjust
+# with taste, not with silence.
+
+confidence:
+  min_threshold:    0.4    # drop candidates below this
+  conflict_threshold: 0.5  # secondary entity must reach this to coexist
+  signal_2_scale:   0.8    # signature-score multiplier (column-signature scoring)
+  signal_3_flat:    0.6    # tag-dimension binding
+  signal_4_flat:    0.6    # asset-name pattern
+
+# ──────────────────────────────────────────────────────────────────────────
+# Signal 1: conformed-schema group → entity label
+# ──────────────────────────────────────────────────────────────────────────
+# For each conformed group listed in ontology/entity_groups.yaml, map the
+# group name to the ontology entity it represents. Groups absent here produce
+# no entity binding even if they pass the overlap threshold.
+
+conformed_group_to_entity:
+  coverage:               coverage
+  policy:                 policy
+  policy_totals:          policy
+  profitability_measures: profitability_component
+  rate_monitoring:        pricing_component
+
+# ──────────────────────────────────────────────────────────────────────────
+# Signal 2: per-entity column signatures
+# ──────────────────────────────────────────────────────────────────────────
+# Score = |asset_cols ∩ signature| / |signature|
+# Entries MUST be real normalised column names. Tag values do NOT work here —
+# those belong in ontology/tag_mappings.yaml under a dimension's
+# entity_bindings block.
+#
+# The line_of_business entity is bound exclusively via Signal 3 (product_line
+# tag dimension); it does not have a column signature.
+
+entity_signatures:
+  policy:
+    - policy_id
+    - policy_number
+    - policy_currency
+    - policy_term
+    - policy_reference
+
+  coverage:
+    - coverage_id
+    - primary_coverage
+    - coverage_type
+    - limit
+    - excess
+    - deductible_value
+    - section
+
+  policyholder:
+    - policyholder_name
+    - policyholder_id
+    - insured_name
+    - entity
+    - branch
+    - new_renewal
+    - inception_date
+    - expiry_date
+
+  broker:
+    - broker_id
+    - broker_name
+    - broker_primary
+    - brokerage_pct
+    - broker_code
+    - broker_group
+    - broker_pseudo_code
+    - coverholder
+
+  claim:
+    - incurred
+    - paid
+    - reserved
+    - claims_as_at
+    - burn_rate_ulr
+    - gg_ulr
+    - gn_ulr
+    - gglr_incurred
+    - gnlr_incurred
+    - loss_cost_inflation
+    - claim_count
+    - fgu_incurred_loss
+    - total_incurred
+    - incurred_excl_specific
+    - paid_claims
+    - number_claims
+
+  underwriter:
+    - underwriter
+    - underwriter_id
+
+  pricing_component:
+    - premium
+    - rate
+    - elr
+    - tech_gnwp
+    - modtech_gnwp
+    - ggwp
+    - gnwp
+    - sold_ggwp
+    - sold_gnwp
+
+  profitability_component:
+    - commission
+    - profitability
+    - sold_to_tech
+    - sold_to_modtech
+    - change_in_sold_to_tech
+    - change_in_sold_to_modtech
+
+  exposure:
+    - exposure
+    - exposure_type
+    - expiring_exposure
+
+# ──────────────────────────────────────────────────────────────────────────
+# Signal 4: substring in asset.normalized_name → entity label
+# ──────────────────────────────────────────────────────────────────────────
+# Used when column-signature scoring can't reach threshold due to sparse
+# column coverage.
+
+asset_name_patterns:
+  claim:     claim
+  brokerage: broker
+
+# ──────────────────────────────────────────────────────────────────────────
+# Column synonyms (reference lookup, currently not wired into the pipeline)
+# ──────────────────────────────────────────────────────────────────────────
+# Direct column-name → entity concept lookup, exposed via
+# SynonymRegistry.lookup_column_concept(). Today this is only consumed by
+# tests (tests/graph/test_synonym_registry.py). Retained so the data isn't
+# lost; re-evaluate whether to keep, wire up, or drop when the entity-model
+# research pass lands.
+
+column_synonyms:
+  # Broker identifiers
+  broker_primary:     broker
+  broker_code:        broker
+  broker_group:       broker
+  broker_pseudo_code: broker
+  coverholder:        broker
+  # Policyholder identifiers
+  policyholder_name:  policyholder
+  entity:             policyholder
+  # Claim signals
+  incurred:           claim
+  paid:               claim
+  reserved:           claim
+  burn_rate_ulr:      claim
+  gg_ulr:             claim
+  gn_ulr:             claim
+  claim_count:        claim
+  total_incurred:     claim
