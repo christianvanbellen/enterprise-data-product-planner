@@ -134,6 +134,28 @@ entity_signatures:
     - expiring_exposure
 
 # ──────────────────────────────────────────────────────────────────────────
+# Signal 3: tag-dimension entity bindings
+# ──────────────────────────────────────────────────────────────────────────
+# NOT defined in this file. Signal 3 bindings live in ontology/tag_mappings.yaml
+# under each dimension's `entity_bindings:` block, co-located with the tag
+# mappings they depend on. Example:
+#
+#     dimensions:
+#       product_line:
+#         tag_mappings:
+#           eupi: european_professional_indemnity
+#           ...
+#         entity_bindings:               # ← Signal 3 lives here
+#           european_professional_indemnity: line_of_business
+#           ...
+#
+# The split is deliberate: a dimension's tag mappings and its entity bindings
+# are co-dependent (you can't bind a value that doesn't exist as a mapping),
+# so keeping them together makes adding a new dimension a single-file edit.
+# This placeholder exists only so the numbering stays intact for readers of
+# this file.
+
+# ──────────────────────────────────────────────────────────────────────────
 # Signal 4: substring in asset.normalized_name → entity label
 # ──────────────────────────────────────────────────────────────────────────
 # Used when column-signature scoring can't reach threshold due to sparse
