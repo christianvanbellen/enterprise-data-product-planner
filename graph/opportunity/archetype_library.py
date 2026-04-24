@@ -44,6 +44,9 @@ def _build_archetypes() -> Dict[str, Dict[str, Any]]:
             "feasibility_against_warehouse": entry.get("feasibility_against_warehouse", "ready_now"),
             "feasibility_rationale":       entry.get("feasibility_rationale", ""),
             "data_gaps":                   entry.get("data_gaps", []),
+            # Tri-state intent from gap-aware curation (v3 semantic_model research).
+            # Defaults to `grounded` for back-compat with pre-gap-aware entries.
+            "status":                      entry.get("status", "grounded"),
         }
     return archetypes
 

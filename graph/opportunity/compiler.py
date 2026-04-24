@@ -89,6 +89,11 @@ class OpportunityGraphCompiler:
                 build_id=build_id,
                 evidence=_ev("opportunity.primitive_node", p.maturity_score, build_id,
                              [{"type": "primitive_id", "value": p.primitive_id}]),
+                status=p.status,
+                blocker_class=p.blocker_class,
+                expected_signal=p.expected_signal,
+                source=p.source,
+                rationale=p.rationale,
             )
             primitive_nodes[p.primitive_id] = node
 
@@ -104,6 +109,7 @@ class OpportunityGraphCompiler:
                 initiative_name=opp.initiative_name,
                 archetype=opp.archetype,
                 readiness=opp.readiness,
+                status=opp.status,
                 business_value_score=opp.business_value_score,
                 implementation_effort_score=opp.implementation_effort_score,
                 build_id=build_id,

@@ -64,12 +64,25 @@ class GraphNode:
         )
 
     @classmethod
-    def from_business_entity(cls, entity_label: str, build_id: str, evidence: Dict[str, Any]) -> "GraphNode":
+    def from_business_entity(
+        cls,
+        entity_label: str,
+        build_id: str,
+        evidence: Dict[str, Any],
+        candidacy_count: int = 0,
+    ) -> "GraphNode":
         node_id = f"entity_{stable_hash('semantic', 'entity', entity_label)}"
+        # status mirrors the entity_bindings gap-aware philosophy: a label with
+        # zero candidate assets is a declared-but-empty aspirational entity —
+        # the node exists so the backlog shows up in the graph, not only in
+        # the entity_audit report.
+        status = "grounded" if candidacy_count > 0 else "aspirational"
         props = {
             "entity_id": node_id,
             "entity_label": entity_label,
             "graph_layer": "semantic",
+            "candidacy_count": candidacy_count,
+            "status": status,
         }
         return cls(node_id=node_id, label="BusinessEntityNode", properties=props, evidence=evidence, build_id=build_id)
 
@@ -98,8 +111,18 @@ class GraphNode:
         cls, primitive_id: str, primitive_name: str, description: str,
         maturity_score: float, supporting_asset_ids: list,
         build_id: str, evidence: Dict[str, Any],
+        status: str = "grounded",
+        blocker_class: Any = None,
+        expected_signal: Any = None,
+        source: Any = None,
+        rationale: Any = None,
     ) -> "GraphNode":
         node_id = f"primitive_{stable_hash('opportunity', 'primitive', primitive_id)}"
+        # Divergence between curatorial intent (status) and warehouse reality
+        # (maturity_score) is a diagnostic signal: e.g. status=grounded with
+        # maturity_score<1.0 means the curator expected full coverage the
+        # warehouse doesn't have; status=aspirational with supporting assets
+        # present means the primitive should be promoted.
         props = {
             "primitive_id": node_id,
             "primitive_name": primitive_name,
@@ -107,6 +130,11 @@ class GraphNode:
             "maturity_score": maturity_score,
             "supporting_asset_ids": supporting_asset_ids,
             "graph_layer": "opportunity",
+            "status": status,
+            "blocker_class": blocker_class,
+            "expected_signal": expected_signal,
+            "source": source or [],
+            "rationale": rationale,
         }
         return cls(node_id=node_id, label="CapabilityPrimitiveNode", properties=props, evidence=evidence, build_id=build_id)
 
@@ -115,14 +143,22 @@ class GraphNode:
         cls, initiative_id: str, initiative_name: str, archetype: str, readiness: str,
         business_value_score: float, implementation_effort_score: float,
         build_id: str, evidence: Dict[str, Any],
+        status: str = "grounded",
     ) -> "GraphNode":
         node_id = f"initiative_{stable_hash('opportunity', 'initiative', initiative_id)}"
+        # status is curatorial intent from initiative_research.yaml (grounded /
+        # partial / aspirational). readiness is Phase 4's computed reality
+        # (ready_now / ready_with_enablement / needs_foundational_work /
+        # not_currently_feasible). Divergence is a diagnostic — e.g. an
+        # aspirational initiative whose required primitives all land grounded
+        # should be promoted.
         props = {
             "initiative_id": node_id,
             "initiative_key": initiative_id,    # original string ID — for sidebar lookups
             "initiative_name": initiative_name,
             "archetype": archetype,
             "readiness": readiness,
+            "status": status,
             "business_value_score": business_value_score,
             "implementation_effort_score": implementation_effort_score,
             "graph_layer": "opportunity",

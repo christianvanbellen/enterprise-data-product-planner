@@ -43,6 +43,9 @@ class OpportunityResult:
     target_users: List[str]
     business_objective: str
     output_type: str
+    # Tri-state curatorial intent from initiative_research.yaml — distinct
+    # from `readiness` (Phase 4's computed reality).
+    status: str = "grounded"
     yaml_data_gaps: List[Dict[str, str]] = field(default_factory=list)
 
 
@@ -148,6 +151,7 @@ class OpportunityPlanner:
                 "initiative_name":             initiative_name,
                 "archetype":                   archetype_def["archetype"],
                 "readiness":                   readiness,
+                "status":                      archetype_def.get("status", "grounded"),
                 "business_value_score":        archetype_def["business_value_score"],
                 "implementation_effort_score": archetype_def["implementation_effort_score"],
                 "composite_score":             composite,
@@ -176,6 +180,7 @@ class OpportunityPlanner:
                 initiative_name=r["initiative_name"],
                 archetype=r["archetype"],
                 readiness=r["readiness"],
+                status=r["status"],
                 business_value_score=r["business_value_score"],
                 implementation_effort_score=r["implementation_effort_score"],
                 composite_score=r["composite_score"],

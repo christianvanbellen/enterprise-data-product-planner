@@ -3,7 +3,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
@@ -21,6 +21,11 @@ def _load_primitive_definitions() -> Dict[str, Dict[str, Any]]:
 
     YAML stores required_columns and required_tags as lists; this function converts
     them to sets for fast intersection in CapabilityPrimitiveExtractor.extract().
+
+    Gap-aware fields (status / blocker_class / expected_signal / source /
+    rationale) are also carried through. They are curatorial *intent* — the
+    computed maturity_score is the *reality*. A divergence between the two
+    is a diagnostic signal surfaced on the primitive node.
     """
     raw = yaml.safe_load(_PRIMITIVES_YAML_PATH.read_text(encoding="utf-8"))
     result: Dict[str, Dict[str, Any]] = {}
@@ -31,6 +36,13 @@ def _load_primitive_definitions() -> Dict[str, Dict[str, Any]]:
             "required_columns":   set(entry.get("required_columns", [])),
             "supporting_domains": list(entry.get("supporting_domains", [])),
             "description":        entry.get("description", ""),
+            # Gap-aware fields — curatorial intent. Default to `grounded` when
+            # unset so pre-gap-aware primitives keep their implicit status.
+            "status":             entry.get("status", "grounded"),
+            "blocker_class":      entry.get("blocker_class"),
+            "expected_signal":    entry.get("expected_signal"),
+            "source":             list(entry.get("source", [])),
+            "rationale":          entry.get("rationale"),
         }
         if "required_tags" in entry:
             defn["required_tags"] = set(entry["required_tags"])
@@ -63,6 +75,16 @@ class CapabilityPrimitive:
     missing_columns: List[str]
     supporting_asset_ids: List[str]
     graph_layer: str = "opportunity"
+    # Gap-aware fields surfaced from primitives.yaml for explorer / spec use.
+    # status is curatorial intent (grounded / partial / aspirational); the
+    # computed maturity_score is the warehouse reality. Divergence is a
+    # diagnostic: intent=grounded + maturity_score<1.0 means the curator
+    # expected full coverage but the warehouse doesn't show it.
+    status: str = "grounded"
+    blocker_class: Optional[str] = None
+    expected_signal: Optional[str] = None
+    source: List[str] = field(default_factory=list)
+    rationale: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +192,15 @@ class CapabilityPrimitiveExtractor:
                 missing_columns = []
                 column_score = 1.0
 
-            maturity_score = round(entity_score * 0.5 + column_score * 0.5, 4)
+            # Degenerate case: infra-style primitive with no warehouse footprint
+            # (e.g. rag_index_over_warehouse — required_entities=[] AND
+            # required_columns=[] AND no tags). The 0/0 fallback would wrongly
+            # score it 1.0; it should be 0.0 because the warehouse has no way
+            # to confirm its presence. The YAML status field carries the intent.
+            if not required_entities and not required_columns and not required_tags:
+                maturity_score = 0.0
+            else:
+                maturity_score = round(entity_score * 0.5 + column_score * 0.5, 4)
 
             # Supporting assets: represent any required entity AND have ≥1 required column (or tag)
             candidate_assets: Set[str] = set()
@@ -204,6 +234,11 @@ class CapabilityPrimitiveExtractor:
                 matched_columns=matched_columns,
                 missing_columns=missing_columns,
                 supporting_asset_ids=supporting,
+                status=defn.get("status", "grounded"),
+                blocker_class=defn.get("blocker_class"),
+                expected_signal=defn.get("expected_signal"),
+                source=defn.get("source", []),
+                rationale=defn.get("rationale"),
             ))
 
         return results

@@ -137,16 +137,25 @@ class SemanticGraphCompiler:
                 domain_nodes[da.domain] = node
         graph_store.upsert_nodes(list(domain_nodes.values()))
 
-        # ── Step 5: Emit BusinessEntityNode for each unique entity label ──
-        entity_nodes: Dict[str, GraphNode] = {}
+        # ── Step 5: Emit BusinessEntityNode for every whitelisted label ──
+        # Every label in entity_bindings.yaml produces a node — including
+        # aspirational entities with zero candidacy. Declared-but-empty nodes
+        # carry candidacy_count=0 and status="aspirational" so the backlog
+        # map is first-class in the graph, not only in entity_audit.
+        candidacy_per_label: Dict[str, int] = {}
         for ec in entity_candidates:
-            if ec.entity_label not in entity_nodes:
-                node = GraphNode.from_business_entity(
-                    ec.entity_label, build_id,
-                    _ev("semantic.entity_node", 1.0, build_id,
-                        [{"type": "ontology", "value": ec.entity_label}]),
-                )
-                entity_nodes[ec.entity_label] = node
+            candidacy_per_label[ec.entity_label] = candidacy_per_label.get(ec.entity_label, 0) + 1
+
+        entity_nodes: Dict[str, GraphNode] = {}
+        for entity_label in SynonymRegistry.allowed_entities():
+            count = candidacy_per_label.get(entity_label, 0)
+            node = GraphNode.from_business_entity(
+                entity_label, build_id,
+                _ev("semantic.entity_node", 1.0, build_id,
+                    [{"type": "ontology", "value": entity_label}]),
+                candidacy_count=count,
+            )
+            entity_nodes[entity_label] = node
         graph_store.upsert_nodes(list(entity_nodes.values()))
 
         # ── Step 6: BELONGS_TO_DOMAIN edges ──────────────────────────────
