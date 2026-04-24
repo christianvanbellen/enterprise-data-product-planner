@@ -141,3 +141,126 @@ patterns:
 
   # ── Rate monitoring ─────────────────────────────────────────────────
   pct_layer_rate:          layer_rate
+
+  # ══════════════════════════════════════════════════════════════════════
+  # v3 semantic_model research additions — grounded
+  # ══════════════════════════════════════════════════════════════════════
+
+  # ── Rate-change attribution decomposition ───────────────────────────
+  # Warehouse has gross_rarc, breadth_of_cover_change, policy_term_change,
+  # claims_inflation as distinct columns — these below complete the decomp.
+  gross_exposure_change:         exposure_change          # more specific than bare `exposure_change`
+  gross_limits_and_excess_change: limits_change           # NEW concept — drives rate_change_attribution_analytics
+  other_changes:                 other_rate_change        # NEW concept — residual bucket
+  loss_cost_inflation:           claims_inflation         # alias to existing claims_inflation
+
+  # ── Loss ratios — targeted / modelled ───────────────────────────────
+  target_gg_elr:                 target_loss_ratio        # NEW concept
+  target_gn_elr:                 target_loss_ratio
+  modtech_gg_elr:                model_technical_loss_ratio  # NEW concept
+  modtech_gn_elr:                model_technical_loss_ratio
+  tech_gg_elr:                   technical_loss_ratio     # NEW concept
+  tech_gn_elr:                   technical_loss_ratio
+  gg_ilr:                        incurred_loss_ratio      # NEW concept
+  gn_ilr:                        incurred_loss_ratio
+
+  # ── Claims development (grounded; feeds aspirational reserving triangle) ─
+  gglr_incurred:                 incurred_loss_ratio
+  gglr_ultimate:                 ultimate_loss_ratio      # NEW concept
+  gglr_selected:                 selected_loss_ratio      # NEW concept
+  gnlr_incurred:                 incurred_loss_ratio
+  gnlr_ultimate:                 ultimate_loss_ratio
+  gnlr_selected:                 selected_loss_ratio
+  burn_rate_incurred:            burn_rate                # explicit for clarity (already matches prefix)
+  burn_rate_selected:            burn_rate
+  burn_rate_ultimate:            burn_rate
+  burn_rate_smoothed:            burn_rate
+  burn_rate_ulr:                 burn_rate
+  dev_pattern:                   development_pattern      # NEW concept
+
+  # ── Claim-level measures ────────────────────────────────────────────
+  incurred_excl_specific:        incurred_loss
+  incurred_trended:              incurred_loss
+  specific_loss_trended:         incurred_loss
+  gn_smoothed_ultimate:          ultimate_loss            # NEW concept
+  ultimate_trended_smoothed:     ultimate_loss
+  ultimate:                      ultimate_loss            # bare `ultimate` column
+
+  # ── Subscription-share family (grounded; feeds subscription_share primitive) ─
+  # IMPORTANT: these are Lloyd's subscription-market positions, NOT reinsurance
+  # cessions. See reinsurance_treaty entity for outward RI cession concepts.
+  our_share_pct_london:          participation_pct        # explicit — already matches prefix
+  our_share_pct_non_london:      participation_pct
+  london_estimated_signed_line:  written_line             # explicit — already matches signed_line
+
+  # ── Expiring / prior-term measures (grounded) ───────────────────────
+  expiring_ggwp:                 gross_written_premium
+  expiring_gnwp:                 net_written_premium
+  expiring_modtech_gnwp:         net_written_premium
+  expiring_tech_gnwp:            net_written_premium
+  expiring_commission_percentage: brokerage
+  expiring_exposure:             exposure
+  expiring_limit:                limit
+  expiring_deductible:           deductible
+  expiring_excess:               excess
+  expiring_our_share_pct:        participation_pct
+  expiring_sold_to_tech:         profitability_ratio
+  expiring_sold_to_modtech:      profitability_ratio
+  expiring_as_if_ggwp:           gross_written_premium
+
+  # ── Rate / index ────────────────────────────────────────────────────
+  trend_index:                   rate_index               # trending index measure
+
+  # ── On-level measures ───────────────────────────────────────────────
+  ggwp_onlevel:                  gross_written_premium
+  gnwp_onlevel:                  net_written_premium
+  exposure_measure_onlevel_weighted: exposure
+
+  # ── Our-share dollar views (grounded) ───────────────────────────────
+  sold_ggwp_our_share:           gross_written_premium
+
+  # ══════════════════════════════════════════════════════════════════════
+  # v3 semantic_model research additions — aspirational
+  # ══════════════════════════════════════════════════════════════════════
+  # These keys match ZERO warehouse columns today. They are no-ops at compile
+  # time but pin the expected column name so the binding is in place when
+  # the data lands. Each is tagged with the initiative_id that justifies it.
+
+  # ── Reserving (ibnr_reserving_support, loss_ratio_forecasting) ──────
+  evaluation_date:               evaluation_date                 # temporal concept
+  development_month:             development_month               # cohort dimension
+  ldf:                           loss_development_factor         # chain-ladder output
+  bf_ultimate:                   bornhuetter_ferguson_ultimate   # BF method output
+  ultimate_loss_ratio:           ultimate_loss_ratio             # reserving target
+
+  # ── Claims severity / fraud (claims_severity_prediction, claims_fraud_detection) ─
+  final_settlement_amount:       claim_settlement_amount
+  claim_closed_date:             claim_closure_date
+  claim_status:                  claim_status
+  fraud_flag:                    fraud_indicator
+  siu_referral_outcome:          siu_outcome
+  fraud_recovery:                fraud_recovery_amount
+
+  # ── Catastrophe (cat_exposure_monitoring / lloyds_rds_standards) ────
+  pml:                           probable_maximum_loss
+  aal:                           annual_average_loss
+  return_period:                 return_period
+  rds_scenario_id:               rds_scenario
+
+  # ── Outward reinsurance (reinsurance_recovery_tracking) ─────────────
+  cession_pct:                   cession_percentage
+  attachment:                    attachment_point
+  recoverable:                   reinsurance_recoverable
+  reinstatement_premium:         reinstatement_premium
+
+  # ── Delegated authority (delegated_authority_monitoring) ────────────
+  umr:                           unique_market_reference
+  bordereau_id:                  bordereau_identifier
+
+  # ── Endorsement / operations (endorsement_mta_monitoring) ───────────
+  endorsement_effective_date:    endorsement_date
+  premium_impact:                premium_adjustment
+
+  # ── Regulatory reporting (regulatory_reporting_qrt) ─────────────────
+  sii_line_of_business:          sii_lob_category
+  ifrs17_measurement_group:      ifrs17_measurement_group

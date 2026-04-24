@@ -49,6 +49,16 @@ entities:
   - underwriter             # v1 suggested removal; kept as a gap-aware signal
                             # — the empty audit row surfaces the missing UW-
                             # identity data to the data team.
+  # v3 semantic_model research — 7 aspirational entities registered per initiative
+  # catalogue v2. Each is backed by at least one aspirational initiative and an
+  # aspirational primitive. Empty audit rows are the intended backlog signal.
+  - claim_development       # v3 — reserving triangles (loss_ratio_forecasting, ibnr_reserving_support)
+  - submission              # v3 — pre-bind submission artefacts (submission_triage)
+  - cat_event               # v3 — catastrophe scenarios (cat_exposure_monitoring)
+  - reinsurance_treaty      # v3 — outward RI programme (reinsurance_recovery_tracking)
+  - bordereau               # v3 — coverholder risk schedules (delegated_authority_monitoring)
+  - endorsement             # v3 — in-force change events (endorsement_mta_monitoring)
+  - regulatory_return       # v3 — SII QRT / Lloyd's return artefacts (regulatory_reporting_qrt)
 
 # ──────────────────────────────────────────────────────────────────────────
 # Confidence weights
@@ -217,6 +227,92 @@ entity_signatures:
     - exposure_measure
     - exposure_type
     - expiring_exposure
+
+  # ── v3 aspirational entity signatures ──────────────────────────────────
+  # All signatures below are aspirational unless a column is explicitly marked
+  # `# grounded` in a trailing comment. Zero matches in the current warehouse
+  # is EXPECTED — these rows exist to make the backlog auditable.
+
+  claim_development:
+    # aspirational — source: loss_ratio_forecasting, ibnr_reserving_support
+    # Triangles keyed by (yoa, development_month). Warehouse holds latest snapshot only.
+    - yoa                          # grounded — present in warehouse
+    - dev_pattern                  # grounded — present as hint column
+    - development_month            # aspirational — cas_reserving_practice_note
+    - evaluation_date              # aspirational — cas_reserving_practice_note
+    - gglr_incurred                # grounded
+    - gnlr_incurred                # grounded
+    - burn_rate_ultimate           # grounded
+    - ldf                          # aspirational — loss development factor
+    - bf_ultimate                  # aspirational — Bornhuetter-Ferguson ultimate
+    - ultimate_loss_ratio          # aspirational
+    # CURATOR TODO (Part F Q1): keep as standalone entity (makes gap visible)
+    # vs collapse into `claim` with aspirational columns (lighter-weight)?
+
+  submission:
+    # aspirational — source: submission_triage
+    # Pre-bind artefact preceding `quote`. Placement platform / broker email.
+    - submission_id                # aspirational
+    - submission_received_date     # aspirational
+    - submission_status            # aspirational
+    - submission_source            # aspirational — broker email / placement platform
+    - broker_primary               # grounded — present on quotes
+    - pas_id                       # grounded — shared key to quote
+    # CURATOR TODO (Part F Q4): `submission` vs `quote` may collapse if
+    # placement platforms push submission_id and quote_id as same artefact.
+
+  cat_event:
+    # aspirational — source: cat_exposure_monitoring
+    - event_id                     # aspirational — lloyds_rds_standards
+    - event_set                    # aspirational — RMS / AIR / Verisk
+    - peril                        # aspirational
+    - return_period                # aspirational
+    - pml                          # aspirational — lloyds_rds_standards
+    - aal                          # aspirational — annual average loss
+    - rds_scenario_id              # aspirational — lloyds_rds_standards
+
+  reinsurance_treaty:
+    # aspirational — source: reinsurance_recovery_tracking
+    # IMPORTANT: `our_share_pct_*` columns are subscription shares NOT cessions.
+    - treaty_id                    # aspirational
+    - treaty_type                  # aspirational — quota_share / xol / fac
+    - cession_pct                  # aspirational
+    - attachment                   # aspirational
+    - limit                        # grounded — present on coverage/layer today
+    - recoverable                  # aspirational
+    - reinstatement_premium        # aspirational
+    # CURATOR TODO (Part F Q3): scoped outward-only; may need treaty_direction
+    # tag or split if inward/assumed writing is material.
+
+  bordereau:
+    # aspirational — source: delegated_authority_monitoring
+    - umr                          # aspirational — lloyds_coverholder_reporting_standards
+    - bordereau_id                 # aspirational
+    - bordereau_period             # aspirational
+    - coverholder                  # grounded — present in column_synonyms
+    - binder_reference             # aspirational
+    - risk_schedule_id             # aspirational
+    # CURATOR TODO (Part F Q5): bordereau vs policy+source-tag — kept distinct
+    # due to differing governance, cadence, and granularity.
+
+  endorsement:
+    # aspirational — source: endorsement_mta_monitoring
+    - endorsement_id               # aspirational — lloyds_minimum_standards_policy_admin
+    - endorsement_effective_date   # aspirational
+    - change_type                  # aspirational — mta / cancellation / reinstatement
+    - premium_impact               # aspirational
+    - policy_id                    # aspirational — policy entity currently keyed by quote_id+pas_id
+
+  regulatory_return:
+    # aspirational — source: regulatory_reporting_qrt
+    # A governance artefact tracking submission/version/signoff. The measures
+    # INSIDE a return live under their value-chain entity.
+    - sii_line_of_business         # aspirational
+    - lloyds_syndicate_code        # aspirational
+    - reporting_period             # aspirational
+    - ifrs17_measurement_group     # aspirational
+    - return_version               # aspirational
+    - signoff_date                 # aspirational
 
 # ──────────────────────────────────────────────────────────────────────────
 # Signal 3: tag-dimension entity bindings — REMOVED April 2026

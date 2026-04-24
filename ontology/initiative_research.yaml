@@ -284,8 +284,7 @@ initiative_taxonomy:
     archetype: copilot
     # NEW: rag_index_over_warehouse — vector index + structured-tool interface
     # for LLM grounding. To be formally proposed in the next semantic-model pass.
-    required_primitives: [quote_lifecycle, claims_experience, renewal_tracking]
-    aspirational_primitives: [rag_index_over_warehouse]
+    required_primitives: [quote_lifecycle, claims_experience, renewal_tracking, rag_index_over_warehouse]
     optional_primitives: [broker_attribution, pricing_decomposition]
     business_value_score: 0.85
     implementation_effort_score: 0.75
@@ -322,8 +321,7 @@ initiative_taxonomy:
     archetype: automation
     # Both primitives are aspirational — `submission_intake` and
     # `broker_communications` to be formally proposed in semantic-model pass.
-    required_primitives: []
-    aspirational_primitives: [submission_intake, broker_communications]
+    required_primitives: [submission_intake, broker_communications]
     optional_primitives: [quote_lifecycle]
     business_value_score: 0.90
     implementation_effort_score: 0.80
@@ -348,7 +346,7 @@ initiative_taxonomy:
       Submission-to-quote cycle time is the single highest-leverage UW ops
       metric per LMA / Hiscox case studies.
     data_gaps:
-      - gap_type: missing_source_system
+      - gap_type: data_source_missing
         description: "No submission/placement system data. Warehouse contains post-bind analytics only."
         feasibility_rationale: >-
           Submission triage requires pre-bind artefacts — broker emails,
@@ -464,8 +462,7 @@ initiative_taxonomy:
     status: partial
     # Scoring
     archetype: prediction
-    required_primitives: [claims_experience]
-    aspirational_primitives: [claim_outcome_label]
+    required_primitives: [claims_experience, claim_outcome_label]
     optional_primitives: [exposure_structure]
     business_value_score: 0.75
     implementation_effort_score: 0.65
@@ -506,8 +503,7 @@ initiative_taxonomy:
     # conceptually wrong for specialty, rather than demote to aspirational.
     # Scoring
     archetype: anomaly_detection
-    required_primitives: []
-    aspirational_primitives: [fraud_labels, claim_event_timeline]
+    required_primitives: [fraud_labels, claim_event_timeline]
     optional_primitives: [claims_experience]
     business_value_score: 0.70
     implementation_effort_score: 0.70
@@ -542,8 +538,7 @@ initiative_taxonomy:
     status: aspirational
     # Scoring
     archetype: automation
-    required_primitives: []
-    aspirational_primitives: [claims_operational_events]
+    required_primitives: [claims_operational_events]
     optional_primitives: [claims_experience]
     business_value_score: 0.82
     implementation_effort_score: 0.85
@@ -568,7 +563,7 @@ initiative_taxonomy:
       Claims is 37% of insurance AI spend (Evident); agentic workflow
       orchestration requires operational event streams.
     data_gaps:
-      - gap_type: missing_source_system
+      - gap_type: data_source_missing
         description: "no claims management system operational data in warehouse"
 
   # =========================================================================
@@ -624,8 +619,7 @@ initiative_taxonomy:
     status: aspirational
     # Scoring
     archetype: monitoring
-    required_primitives: [exposure_structure]
-    aspirational_primitives: [cat_model_output]
+    required_primitives: [exposure_structure, cat_model_output]
     optional_primitives: []
     business_value_score: 0.90
     implementation_effort_score: 0.80
@@ -650,7 +644,7 @@ initiative_taxonomy:
       Lloyd's Minimum Standards require RDS reporting; CAT aggregation
       is a regulatory floor, not optional.
     data_gaps:
-      - gap_type: missing_source_system
+      - gap_type: data_source_missing
         description: "no catastrophe modelling system output in warehouse (RMS/AIR/Verisk feeds absent)"
 
   # =========================================================================
@@ -694,8 +688,7 @@ initiative_taxonomy:
     status: aspirational
     # Scoring
     archetype: monitoring
-    required_primitives: [broker_attribution]
-    aspirational_primitives: [bordereaux_ingestion]
+    required_primitives: [broker_attribution, bordereaux_ingestion]
     optional_primitives: [claims_experience]
     business_value_score: 0.78
     implementation_effort_score: 0.65
@@ -720,7 +713,7 @@ initiative_taxonomy:
       DA is a material book for most Lloyd's carriers; DA portfolio drift
       is a regulatory and performance concern.
     data_gaps:
-      - gap_type: missing_source_system
+      - gap_type: data_source_missing
         description: "no bordereaux ingestion in current warehouse — delegated authority data not modelled"
 
   # =========================================================================
@@ -756,8 +749,7 @@ initiative_taxonomy:
     archetype: monitoring
     # NEW: subscription_share primitive — to be formally proposed in
     # semantic-model pass. Columns exist today; primitive is definable now.
-    required_primitives: [pricing_decomposition, profitability_decomposition]
-    aspirational_primitives: [subscription_share]
+    required_primitives: [pricing_decomposition, profitability_decomposition, subscription_share]
     optional_primitives: [portfolio_rate_monitoring]
     business_value_score: 0.70
     implementation_effort_score: 0.35
@@ -787,8 +779,7 @@ initiative_taxonomy:
     status: partial
     # Scoring
     archetype: prediction
-    required_primitives: [claims_experience, profitability_decomposition]
-    aspirational_primitives: [claims_development_triangle]
+    required_primitives: [claims_experience, profitability_decomposition, claims_development_triangle]
     optional_primitives: [pricing_decomposition]
     business_value_score: 0.80
     implementation_effort_score: 0.55
@@ -834,8 +825,7 @@ initiative_taxonomy:
     # Scoring
     # NEW initiative v1 — fills reserving-domain gap (was absent from catalogue).
     archetype: prediction
-    required_primitives: []
-    aspirational_primitives: [claims_development_triangle, yoa_cohort_snapshots]
+    required_primitives: [claims_development_triangle, yoa_cohort_snapshots]
     optional_primitives: [claims_experience, profitability_decomposition]
     business_value_score: 0.85
     implementation_effort_score: 0.60
@@ -871,8 +861,7 @@ initiative_taxonomy:
     # Scoring
     # NEW initiative v1 — fills operations-domain gap (was absent).
     archetype: monitoring
-    required_primitives: []
-    aspirational_primitives: [endorsement_events]
+    required_primitives: [endorsement_events]
     optional_primitives: []
     business_value_score: 0.55
     implementation_effort_score: 0.50
@@ -896,7 +885,7 @@ initiative_taxonomy:
       regulatory reporting. Low value at a specialty carrier (endorsements
       are few) but load-bearing at scale.
     data_gaps:
-      - gap_type: missing_source_system
+      - gap_type: data_source_missing
         description: "no endorsement event stream from PAS"
 
   # =========================================================================
@@ -908,8 +897,7 @@ initiative_taxonomy:
     # Scoring
     # NEW initiative v1 — fills compliance-domain gap (was absent).
     archetype: automation
-    required_primitives: []
-    aspirational_primitives: [regulatory_reporting_schema]
+    required_primitives: [regulatory_reporting_schema]
     optional_primitives: [profitability_decomposition]
     business_value_score: 0.60
     implementation_effort_score: 0.75
@@ -947,8 +935,7 @@ initiative_taxonomy:
     # IMPORTANT: our_share_pct_* are Lloyd's subscription shares, NOT
     # reinsurance cessions. This initiative needs separate outward-RI data.
     archetype: monitoring
-    required_primitives: []
-    aspirational_primitives: [outward_reinsurance_programme]
+    required_primitives: [outward_reinsurance_programme]
     optional_primitives: [profitability_decomposition]
     business_value_score: 0.70
     implementation_effort_score: 0.60
@@ -972,7 +959,7 @@ initiative_taxonomy:
       Outward reinsurance economics materially affect net result; absent
       data is a structural gap for any gross-vs-net decomposition.
     data_gaps:
-      - gap_type: missing_source_system
+      - gap_type: data_source_missing
         description: "no outward reinsurance programme data"
 
 # ---------------------------------------------------------------------------

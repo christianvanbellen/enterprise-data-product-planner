@@ -176,3 +176,236 @@ primitives:
       - contingency
     supporting_domains: [portfolio_monitoring, pricing]
     description: "Portfolio-level rate-change drift across product lines"
+
+  # ========================================================================
+  # v3 semantic_model research additions
+  # ========================================================================
+  # 14 primitives traced 1:1 to initiatives in initiative_research.yaml v2.
+  # One grounded (subscription_share — columns exist today), 13 aspirational
+  # with blocker_class + expected_signal + source + rationale fields.
+
+  - id: subscription_share
+    # v3 addition — GROUNDED. Every required column exists in the warehouse
+    # today. Promoting this primitive clarifies that our_share_pct_* is
+    # Lloyd's subscription-market position, NOT reinsurance cession.
+    status: grounded
+    required_entities: [pricing_component, profitability_component]
+    required_columns:
+      - our_share_pct_london
+      - our_share_pct_non_london
+      - london_order_percentage
+      - london_estimated_signed_line
+    supporting_domains: [profitability]
+    description: "Lloyd's subscription-market position: signed-line, order%, our-share on gross-to-net economics"
+    source: [subscription_share_performance]
+    # CURATOR TODO (Part F Q2): these columns are not currently in any entity
+    # signature — consider adding to pricing_component signature, or leave
+    # as measure-only family (brief leans toward the latter).
+
+  - id: claims_development_triangle
+    status: aspirational
+    required_entities: [claim_development]
+    required_columns:
+      - yoa
+      - development_month
+      - evaluation_date
+      - gglr_incurred
+      - gnlr_incurred
+      - burn_rate_ultimate
+    supporting_domains: [reserving]
+    description: "Claims incurred/paid at successive evaluation dates for same YOA cohort (chain-ladder input)"
+    blocker_class: schema_group_missing
+    expected_signal: "Time-series ingestion of claims evaluation snapshots by (yoa, development_month). Warehouse holds latest snapshot only."
+    source: [loss_ratio_forecasting, ibnr_reserving_support]
+    rationale: "Chain-ladder / BF methods are industry standard; absent triangles the actuarial function is blind."
+
+  - id: yoa_cohort_snapshots
+    status: aspirational
+    required_entities: [claim_development, profitability_component]
+    required_columns:
+      - yoa
+      - evaluation_date
+      - gglr_incurred
+      - gnlr_incurred
+    supporting_domains: [reserving]
+    description: "Point-in-time cohort snapshots for YOA-by-evaluation-date loss-ratio tracking"
+    blocker_class: schema_group_missing
+    expected_signal: "Same time-series shape as claims_development_triangle, aggregated to yoa cohort."
+    source: [ibnr_reserving_support]
+    rationale: "YOA cohorting is the base unit of actuarial reserving in London Market."
+
+  - id: claim_outcome_label
+    status: aspirational
+    required_entities: [claim]
+    required_columns:
+      - final_settlement_amount
+      - claim_closed_date
+      - claim_status
+    supporting_domains: [claims]
+    description: "Ground-truth closed-claim outcomes for supervised severity modelling"
+    blocker_class: data_source_missing
+    expected_signal: "Closed-claim finalisation fields from claims management system. Warehouse has development-stage incurred/paid only."
+    source: [claims_severity_prediction]
+    rationale: "No supervised claims ML is possible without a labelled target variable."
+
+  - id: fraud_labels
+    status: aspirational
+    required_entities: [claim]
+    required_columns:
+      - fraud_flag
+      - siu_referral_outcome
+      - fraud_recovery
+    supporting_domains: [claims]
+    description: "Confirmed-fraud labels for supervised fraud-detection training"
+    blocker_class: data_source_missing
+    expected_signal: "SIU investigation outcome table keyed by claim_id."
+    source: [claims_fraud_detection]
+    rationale: "Fraud ML calibration requires ground truth; specialty book may not have sufficient volume."
+
+  - id: claim_event_timeline
+    status: aspirational
+    required_entities: [claim]
+    required_columns:
+      - claim_event_id
+      - claim_event_timestamp
+      - claim_event_type
+    supporting_domains: [claims]
+    description: "Timestamped adjuster and claims-workflow event log for behavioural / anomaly signals"
+    blocker_class: data_source_missing
+    expected_signal: "Operational claims-management system event stream (registration, reserve moves, status changes, docs)."
+    source: [claims_fraud_detection, claims_automation]
+    rationale: "Agentic claims orchestration and fraud-anomaly detection both need event timelines."
+
+  - id: claims_operational_events
+    status: aspirational
+    required_entities: [claim]
+    required_columns:
+      - claim_task_id
+      - claim_task_assigned_to
+      - claim_task_status
+      - claim_reserve_movement
+    supporting_domains: [claims]
+    description: "Operational claims workflow events — task assignment, reserve movements, routing decisions"
+    blocker_class: data_source_missing
+    expected_signal: "Claims management system operational feed. Warehouse has finalised experience analytics only."
+    source: [claims_automation]
+    rationale: "Agentic claims automation requires live operational workflow state."
+
+  - id: cat_model_output
+    status: aspirational
+    required_entities: [cat_event, exposure]
+    required_columns:
+      - event_id
+      - pml
+      - aal
+      - return_period
+      - peril
+    supporting_domains: [exposure_management]
+    description: "Catastrophe model outputs — PML, AAL, event-set loss tables"
+    blocker_class: tool_missing
+    expected_signal: "RMS / AIR / Verisk model output integration. Lloyd's Minimum Standards require RDS reporting."
+    source: [cat_exposure_monitoring]
+    rationale: "CAT aggregation is a regulatory floor, not optional."
+
+  - id: outward_reinsurance_programme
+    status: aspirational
+    required_entities: [reinsurance_treaty, profitability_component]
+    required_columns:
+      - treaty_id
+      - cession_pct
+      - attachment
+      - recoverable
+      - reinstatement_premium
+    supporting_domains: [reinsurance]
+    description: "Outward cessions and recoverables by treaty — NOT subscription share"
+    blocker_class: data_source_missing
+    expected_signal: "Outward RI programme data source (treaty admin system). our_share_pct_* are subscription shares, not RI cessions."
+    source: [reinsurance_recovery_tracking]
+    rationale: "Outward RI materially affects net result; structural gap for any gross-vs-net decomposition."
+
+  - id: bordereaux_ingestion
+    status: aspirational
+    required_entities: [bordereau, broker]
+    required_columns:
+      - umr
+      - bordereau_id
+      - bordereau_period
+      - coverholder
+      - risk_schedule_id
+    supporting_domains: [distribution]
+    description: "Coverholder bordereaux risk schedules under binding authorities"
+    blocker_class: data_source_missing
+    expected_signal: "Bordereaux ingestion pipeline conforming to Lloyd's Coverholder Reporting Standards."
+    source: [delegated_authority_monitoring]
+    rationale: "DA is material for Lloyd's carriers; coverholder name column alone is insufficient."
+
+  - id: endorsement_events
+    status: aspirational
+    required_entities: [endorsement, policy]
+    required_columns:
+      - endorsement_id
+      - endorsement_effective_date
+      - change_type
+      - premium_impact
+    supporting_domains: [operations]
+    description: "In-force endorsement / MTA / cancellation event stream"
+    blocker_class: data_source_missing
+    expected_signal: "Endorsement event table from PAS. Operations domain near-zero signal today."
+    source: [endorsement_mta_monitoring]
+    rationale: "Load-bearing at scale for retention and premium development; low priority at a specialty carrier."
+
+  - id: regulatory_reporting_schema
+    status: aspirational
+    required_entities: [regulatory_return, profitability_component]
+    required_columns:
+      - sii_line_of_business
+      - lloyds_syndicate_code
+      - reporting_period
+      - ifrs17_measurement_group
+    supporting_domains: [compliance]
+    description: "Conformed mappings from warehouse measures to SII / Lloyd's / IFRS17 reporting categories"
+    blocker_class: governance_missing
+    expected_signal: "Regulatory-reporting conformed layer mapping warehouse measures to SII QRT LoBs and Lloyd's return schedules."
+    source: [regulatory_reporting_qrt]
+    rationale: "Regulatory reporting is not discretionary; mapping governance is the bottleneck."
+
+  - id: submission_intake
+    status: aspirational
+    required_entities: [submission, broker]
+    required_columns:
+      - submission_id
+      - submission_received_date
+      - submission_status
+      - submission_source
+    supporting_domains: [underwriting, distribution]
+    description: "Pre-bind submission intake — broker emails, ACORD forms, placement-platform feeds"
+    blocker_class: data_source_missing
+    expected_signal: "Placement platform (Whitespace/PPL) / broker email ingestion. Warehouse is entirely post-bind."
+    source: [submission_triage]
+    rationale: "Submission-to-quote cycle time is the highest-leverage UW ops metric."
+
+  - id: broker_communications
+    status: aspirational
+    required_entities: [broker, submission]
+    required_columns:
+      - communication_id
+      - communication_channel
+      - communication_timestamp
+      - communication_direction
+    supporting_domains: [distribution]
+    description: "Broker-carrier communication log for submission triage and relationship analytics"
+    blocker_class: data_source_missing
+    expected_signal: "Email / platform communication log. No such source today."
+    source: [submission_triage]
+    rationale: "Natural-language submission triage needs the communication stream for context."
+
+  - id: rag_index_over_warehouse
+    status: aspirational
+    required_entities: []
+    required_columns: []
+    supporting_domains: [underwriting]
+    description: "Vector index + structured-tool interface over warehouse assets for LLM grounding"
+    blocker_class: tool_missing
+    expected_signal: "Vector-store infra (over UW comments, policy docs) + tool-call layer for numeric lookups + guardrails for confidential data. This is infra, not a dataset — hence no required_entities/columns."
+    source: [underwriter_copilot_rag]
+    rationale: "Distinct from renewal_pricing_copilot — broader UW-context Q&A has its own architecture."

@@ -229,13 +229,22 @@ def test_not_currently_feasible_have_visible_blocker(golden_opportunities):
 
 def test_infeasible_missing_primitives_are_virtual_dicts(golden_opportunities):
     """For infeasible initiatives with no defined required_primitives, every entry
-    in missing_primitives should be a dict with source='yaml_data_gap'."""
+    in missing_primitives should be a dict with source='yaml_data_gap'.
+
+    April 2026 (v3 semantic_model research): aspirational_primitives was merged
+    into required_primitives now that the primitives are defined in
+    primitives.yaml. As a result no current initiative has empty
+    required_primitives — skipping the test rather than asserting a scenario
+    that deliberately no longer exists. The virtual-dict generation code path
+    in planner.py remains correct and covered by the has_data_gap branch of
+    `test_not_currently_feasible_have_visible_blocker`."""
     infeasible_no_req = [
         o for o in golden_opportunities
         if o.readiness == "not_currently_feasible"
         and len(INITIATIVE_ARCHETYPES[o.initiative_id]["required_primitives"]) == 0
     ]
-    assert infeasible_no_req, "Expected at least one infeasible initiative with no required_primitives"
+    if not infeasible_no_req:
+        pytest.skip("No infeasible initiatives with empty required_primitives in current YAML")
     for opp in infeasible_no_req:
         for entry in opp.missing_primitives:
             assert isinstance(entry, dict), (

@@ -9,17 +9,25 @@ from graph.semantic.ontology_loader import SynonymRegistry
 # ------------------------------------------------------------------ #
 
 def test_allowed_entities_contains_all_current():
-    """After the April 2026 entity-research curation, the whitelist is 11
-    entities: the 9 from the previous pass plus `quote` (warehouse bus key)
-    and `layer` (specialty-pricing unit). `underwriter` is kept despite
-    having zero warehouse signal — a declared-but-empty entity produces a
-    `0 candidacy` audit row, which is the gap-aware backlog signal."""
+    """After the April 2026 entity-research curation the whitelist is 18:
+    11 grounded/partial + 7 aspirational. The grounded set is the 9 from
+    the original pass plus `quote` (warehouse bus key) and `layer`
+    (specialty-pricing unit). The aspirational set — added by v3
+    semantic_model research — comprises 7 entities each backed by at
+    least one aspirational initiative, with zero warehouse signal
+    expected. Declared-but-empty entities produce `0 candidacy` audit
+    rows, which are the intended gap-aware backlog signal."""
     entities = SynonymRegistry.allowed_entities()
     expected = {
+        # Grounded / partial (11)
         "policyholder", "broker", "claim",
         "coverage", "policy", "quote", "layer",
         "pricing_component", "profitability_component",
         "exposure", "underwriter",
+        # Aspirational — v3 semantic_model research (7)
+        "claim_development", "submission", "cat_event",
+        "reinsurance_treaty", "bordereau", "endorsement",
+        "regulatory_return",
     }
     assert expected == set(entities), (
         f"Missing: {expected - set(entities)}, extra: {set(entities) - expected}"

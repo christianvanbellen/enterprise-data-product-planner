@@ -10,14 +10,28 @@ gap_types:
   - missing_history
   - weak_identifier
   - incomplete_relationship
-  - missing_conformed_entity
-  - missing_conformed_layer       # added April 2026 (v1 initiative research) —
-                                  # regulatory/compliance mapping layers
+  - missing_conformed_entity       # a whole business-entity conformed group absent
+  - missing_conformed_layer        # regulatory/compliance mapping layer absent
+                                   # (added April 2026, v1 initiative research)
+  - schema_group_missing           # added April 2026 (v3 semantic_model research) —
+                                   # a named entity_groups.yaml conformed group is
+                                   # missing, blocking Signal-1 binding of an asset
+                                   # family (distinct from missing_conformed_entity
+                                   # which is the broader absence)
   - insufficient_documentation
   - low_test_coverage
   - insufficient_outcome_labels
   - missing_event_timeline
-  - missing_source_system
-  - tool_missing                  # added April 2026 (v1 initiative research) —
-                                  # external tool / platform integrations
-                                  # (CAT engine, RAG infra, etc.)
+  - data_source_missing            # renamed from missing_source_system in v3 research
+                                   # for category-noun consistency with blocker_class
+                                   # values in initiative_research.yaml
+  - tool_missing                   # external tool / platform integrations
+                                   # (CAT engine, RAG infra, etc.) — added v1
+  - governance_missing             # added April 2026 (v3 semantic_model research) —
+                                   # a data or mapping governance artefact
+                                   # (conformed regulatory mappings, data-owner
+                                   # attestations, policy signoff) is required
+                                   # before the primitive is trustworthy
+  - primitive_missing              # added April 2026 (v3 semantic_model research) —
+                                   # a primitive referenced by an initiative is
+                                   # not yet defined in primitives.yaml
