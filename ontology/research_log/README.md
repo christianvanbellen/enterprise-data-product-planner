@@ -9,7 +9,22 @@ taxonomy (or any other research artefact) is a `git log` away.
 - **`domain_taxonomy/`** — output of `scripts/research_domain_taxonomy.py`.
   Proposes a domain taxonomy and keyword corpus grounded in a reference
   framework (see `ontology/reference_frameworks/`) and the current warehouse
-  signal.
+  signal. Independent cadence (annual-ish); domain labels change rarely.
+- **`initiatives/`** — output of `scripts/research_initiatives.py`.
+  Gap-aware initiative catalogue: which analytical capabilities are
+  load-bearing for the business, what primitives each requires, and
+  which gaps block them. TOP of the research dependency chain —
+  initiatives drive primitives drive entities + metric patterns.
+  Supports optional web research via `--web-research` flag for fresher
+  citations. Curate `initiative_research.yaml` BEFORE running
+  `semantic_model` research.
+- **`semantic_model/`** — output of `scripts/research_semantic_model.py`.
+  Three-layer brief covering entities (`entity_bindings.yaml`), metric
+  patterns (`metric_patterns.yaml`), and primitives (`primitives.yaml`).
+  Reads the curated `initiative_research.yaml` as a frozen input so
+  aspirational initiatives propagate down into aspirational primitives /
+  entities / metric_pattern keys. Was called `entity_model/` through v1 —
+  renamed once metric-pattern curation was folded into the same pass.
 
 ## File naming
 

@@ -23,7 +23,7 @@
 # team which business concepts the pipeline is expected to recognise but
 # can't see yet. Do not remove an entity just because it's empty today.
 
-# Last reviewed against: research_log/entity_model/v1_2026-04-23_fab12dbc.md
+# Last reviewed against: research_log/semantic_model/v1_2026-04-23_fab12dbc.md
 # Reference framework:   reference_frameworks/commercial_specialty_pc.md (synthesised —
 #                        re-curate against an authoritative internal source when available).
 #
