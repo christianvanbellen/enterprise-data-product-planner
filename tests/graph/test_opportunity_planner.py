@@ -51,9 +51,9 @@ def test_archetype_library_all_required_primitives_valid():
     assert errors == [], f"Library validation errors:\n" + "\n".join(errors)
 
 
-def test_library_all_initiatives_returns_nineteen():
+def test_library_all_initiatives_returns_twentysix():
     library = InitiativeArchetypeLibrary()
-    assert len(library.all_initiatives()) == 19
+    assert len(library.all_initiatives()) == 26
 
 
 def test_library_required_primitives_match_definition():
@@ -64,18 +64,18 @@ def test_library_required_primitives_match_definition():
 
 
 # ------------------------------------------------------------------ #
-# All 19 initiatives produce an OpportunityResult                      #
+# All 26 initiatives produce an OpportunityResult                      #
 # ------------------------------------------------------------------ #
 
-def test_all_nineteen_initiatives_have_result(golden_opportunities):
+def test_all_initiatives_have_result(golden_opportunities):
     ids = {o.initiative_id for o in golden_opportunities}
     expected = set(INITIATIVE_ARCHETYPES.keys())
     assert ids == expected, f"Missing: {expected - ids}"
 
 
-def test_total_initiative_count_is_19(golden_opportunities):
-    assert len(golden_opportunities) == 19, (
-        f"Expected 19 initiatives, got {len(golden_opportunities)}"
+def test_total_initiative_count_is_26(golden_opportunities):
+    assert len(golden_opportunities) == 26, (
+        f"Expected 26 initiatives, got {len(golden_opportunities)}"
     )
 
 
@@ -203,10 +203,14 @@ def test_deterministic_output(golden_primitives):
 # BUG 1 — missing_primitives populated for infeasible initiatives       #
 # ------------------------------------------------------------------ #
 
-def test_not_currently_feasible_have_nonempty_missing_primitives(golden_opportunities):
-    """not_currently_feasible initiatives must have non-empty missing_primitives.
-    These are synthetic dict entries from YAML data_gaps for initiatives that have
-    no defined required_primitives but do have data_gap blockers.
+def test_not_currently_feasible_have_visible_blocker(golden_opportunities):
+    """not_currently_feasible initiatives must surface their blocker visibly —
+    either as missing_primitives (primitive-level gap) or yaml_data_gaps
+    (tool / governance / data-source gap). April 2026 (v1 initiative research):
+    relaxed from missing_primitives-only to allow tool_missing /
+    governance_missing initiatives (e.g. underwriter_copilot_rag,
+    regulatory_reporting_qrt) whose required_primitives are all grounded but
+    whose blockers are non-primitive.
     """
     by_id = {o.initiative_id: o for o in golden_opportunities}
     infeasible_ids = [iid for iid, o in by_id.items()
@@ -215,8 +219,11 @@ def test_not_currently_feasible_have_nonempty_missing_primitives(golden_opportun
 
     for iid in infeasible_ids:
         opp = by_id[iid]
-        assert len(opp.missing_primitives) >= 1, (
-            f"{iid} is not_currently_feasible but missing_primitives is empty"
+        has_missing_prim = len(opp.missing_primitives) >= 1
+        has_data_gap = len(opp.yaml_data_gaps) >= 1
+        assert has_missing_prim or has_data_gap, (
+            f"{iid} is not_currently_feasible but has no visible blocker "
+            f"(missing_primitives and yaml_data_gaps both empty)"
         )
 
 

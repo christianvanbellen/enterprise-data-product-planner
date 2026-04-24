@@ -1,12 +1,23 @@
 # initiative_research.yaml — complete initiative definitions (Phases 4 and 5)
 # Read by: InitiativeArchetypeLibrary at module load.
 #
-# Each initiative entry combines two previously-separate concerns:
+# Last curated against: research_log/initiatives/v1_2026-04-24_fab12dbc.md
+# Reference framework: reference_frameworks/insurance_analytics_state_of_art.md
+#
+# ---------------------------------------------------------------------------
+# Field schema
+# ---------------------------------------------------------------------------
+#
+# Each initiative entry combines three concerns:
+#
 #   Scoring fields   — archetype, required_primitives, optional_primitives,
 #                      business_value_score, implementation_effort_score,
 #                      target_users, business_objective, output_type
 #   Research fields  — category, literature_name, sources, literature_quote,
-#                      feasibility_against_warehouse, feasibility_rationale, data_gaps
+#                      feasibility_against_warehouse, feasibility_rationale,
+#                      data_gaps
+#   Gap-aware fields — status, blocker_class, expected_signal, rationale
+#                      (see "Gap-aware schema" below)
 #
 # Composite score formula (Phase 4):
 #   score = business_value_score
@@ -17,10 +28,42 @@
 #
 # feasibility_against_warehouse caps readiness regardless of primitive matching.
 # Valid values: ready_now | ready_with_enablement | needs_foundational_work | not_currently_feasible
+#
+# ---------------------------------------------------------------------------
+# Gap-aware schema (introduced April 2026, v1 initiative research)
+# ---------------------------------------------------------------------------
+#
+# Every initiative carries a tri-state `status`:
+#
+#   status: grounded | partial | aspirational
+#     grounded     — required primitives + columns all present; ready to build today.
+#     partial      — some signal; named pieces missing (see blocker_class / expected_signal).
+#     aspirational — zero warehouse signal today, BUT load-bearing per reference
+#                    framework + external sources. Registered so that when the
+#                    data lands, the framing is already in place.
+#
+# For partial + aspirational initiatives, also:
+#   blocker_class:   data_source_missing | schema_group_missing |
+#                    tool_missing | governance_missing | primitive_missing
+#   expected_signal: what data / primitives would need to land to move to grounded.
+#   rationale:       why this is worth registering despite the gap.
+#
+# Aspirational initiatives are first-class outputs — the map they form IS the
+# backlog signal for the data team. Do not remove an initiative just because
+# its warehouse signal is zero today.
+#
+# feasibility_against_warehouse is retained for Python consumer compatibility
+# (archetype_library.py, compiler.py, and tests read the 4-state enum). The
+# tri-state status is the new curatorial anchor; a future refactor can
+# collapse the two fields once consumers are updated.
 
 # ---------------------------------------------------------------------------
 # Bibliography
 # ---------------------------------------------------------------------------
+# Sources flagged ⚠ are newly cited in v1 research and should be validated /
+# replaced with specific reports before being treated as editorial floor.
+# See reference_frameworks/insurance_analytics_state_of_art.md for the
+# bibliography editorial standard.
 
 sources:
   - id: mckinsey_pnc_underwriting_2021
@@ -51,21 +94,92 @@ sources:
     year: 2025
     url: https://www.hyperexponential.com/blog/how-ai-and-data-technology-are-transforming-the-insurance-industry
 
+  # ⚠ New citations from v1 research — CURATOR VERIFY before treating as
+  # editorial floor. Most are reference-framework-level pointers rather than
+  # specific reports; substitute specific CAS monographs / PRA SS / LMA
+  # technical papers where available.
+
+  - id: lloyds_coverholder_reporting_standards
+    title: "Lloyd's Coverholder Reporting Standards"
+    publisher: Lloyd's of London
+    year: ongoing
+    url: https://www.lloyds.com/conducting-business/delegated-authorities
+    note: "⚠ CURATOR VERIFY — reference-framework pointer, not a specific report"
+
+  - id: lloyds_rds_standards
+    title: "Lloyd's Realistic Disaster Scenarios / Minimum Standards — Exposure Management"
+    publisher: Lloyd's of London
+    year: 2024
+    note: "⚠ CURATOR VERIFY — reference-framework pointer"
+
+  - id: lloyds_subscription_market_2024
+    title: "Lloyd's subscription-market mechanics (signed-line, written-line, line-slip)"
+    publisher: Lloyd's of London
+    year: 2024
+    note: "⚠ CURATOR VERIFY — may be better served by a specific LMA technical paper"
+
+  - id: cas_reserving_practice_note
+    title: "Statement of Principles on Loss Reserving"
+    publisher: Casualty Actuarial Society
+    year: ongoing
+    note: "⚠ CURATOR VERIFY — substitute with specific CAS monograph if appropriate"
+
+  - id: ifoa_reserving_practice_standard
+    title: "Technical Actuarial Standard 100 / reserving practice"
+    publisher: Institute and Faculty of Actuaries
+    year: ongoing
+    note: "⚠ CURATOR VERIFY"
+
+  - id: cas_rate_change_attribution
+    title: "CAS practice note on rate-change attribution"
+    publisher: Casualty Actuarial Society
+    year: ongoing
+    note: "⚠ CURATOR VERIFY — confirm exact citation, may need specific CAS monograph"
+
+  - id: solvency_ii_qrt_specification
+    title: "Solvency II Quantitative Reporting Templates"
+    publisher: EIOPA
+    year: 2024
+    note: "⚠ CURATOR VERIFY"
+
+  - id: lloyds_market_returns_2024
+    title: "Lloyd's Market Returns specification"
+    publisher: Lloyd's of London
+    year: 2024
+    note: "⚠ CURATOR VERIFY"
+
+  - id: lloyds_minimum_standards_policy_admin
+    title: "Lloyd's Minimum Standards — Policy Administration"
+    publisher: Lloyd's of London
+    year: ongoing
+    note: "⚠ CURATOR VERIFY"
+
+  - id: ifoa_reinsurance_practice_note
+    title: "IFoA reinsurance actuarial practice note"
+    publisher: Institute and Faculty of Actuaries
+    year: ongoing
+    note: "⚠ CURATOR VERIFY"
+
 # ---------------------------------------------------------------------------
 # Initiative taxonomy
 # ---------------------------------------------------------------------------
+# Categories aligned with domain labels in ontology/domain_keywords.yaml.
+# v1 research rehomed `copilot` category to `underwriting` and renamed
+# `portfolio` → `portfolio_monitoring`.
 
 initiative_taxonomy:
 
-  # --- UNDERWRITING ---
+  # =========================================================================
+  # UNDERWRITING
+  # =========================================================================
 
   - id: pricing_adequacy_monitoring
+    status: grounded
     # Scoring
     archetype: monitoring
     required_primitives: [pricing_decomposition, rate_change_monitoring]
-    # portfolio_rate_monitoring added April 2026 (v1 entity research) — the
-    # portfolio-level rate roll-up is a natural enabler for adequacy monitoring
-    # even though the monitoring itself is per-microsegment.
+    # portfolio_rate_monitoring added April 2026 — the portfolio-level rate
+    # roll-up is a natural enabler even though the monitoring is per-microsegment.
     optional_primitives: [profitability_decomposition, portfolio_rate_monitoring, layer_pricing]
     business_value_score: 0.85
     implementation_effort_score: 0.35
@@ -82,6 +196,7 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: underwriting_decision_support
+    status: grounded
     # Scoring
     archetype: decision_support
     required_primitives: [quote_lifecycle, pricing_decomposition, exposure_structure]
@@ -100,31 +215,8 @@ initiative_taxonomy:
     feasibility_rationale: "quote lifecycle, pricing decomposition, exposure structure all present"
     data_gaps: []
 
-  - id: submission_triage
-    # Scoring
-    archetype: automation
-    required_primitives: []
-    optional_primitives: [quote_lifecycle]
-    business_value_score: 0.90
-    implementation_effort_score: 0.80
-    target_users: [underwriters, operations]
-    business_objective: "Reduce quote turnaround time by automated triage of incoming submissions"
-    output_type: ai_agent
-    # Research
-    category: underwriting
-    literature_name: "Submission intake and automated triage"
-    sources: [lma_ai_survey_2025, hyperexponential_insurance_ai_2025]
-    literature_quote: "quote turnaround from three days to three minutes — 99% reduction (Hiscox)"
-    feasibility_against_warehouse: not_currently_feasible
-    feasibility_rationale: "requires unstructured submission documents and broker email data — not in analytical warehouse"
-    data_gaps:
-      - gap_type: missing_source_system
-        description: "No submission/placement system data. Warehouse contains post-bind analytics only."
-        feasibility_rationale: "Submission triage requires pre-bind artefacts — broker emails, structured
-          submission forms, and placement platform data. The current warehouse is populated exclusively
-          from post-bind PAS and quote system exports; no placement or intake system feed is present."
-
   - id: renewal_prioritisation
+    status: grounded
     # Scoring
     archetype: prioritization
     required_primitives: [renewal_tracking, pricing_decomposition]
@@ -144,6 +236,7 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: risk_appetite_monitoring
+    status: grounded
     # Scoring
     archetype: monitoring
     required_primitives: [exposure_structure, product_line_segmentation]
@@ -162,15 +255,119 @@ initiative_taxonomy:
     feasibility_rationale: "exposure_structure and product_line_segmentation primitives present"
     data_gaps: []
 
-  # --- PRICING ---
+  - id: renewal_pricing_copilot
+    status: grounded
+    # Scoring
+    archetype: copilot
+    required_primitives: [quote_lifecycle, pricing_decomposition, renewal_tracking]
+    # layer_pricing added April 2026 — renewal decisions in specialty business
+    # involve layer-level price comparisons.
+    optional_primitives: [claims_experience, broker_attribution, layer_pricing]
+    business_value_score: 0.80
+    implementation_effort_score: 0.70
+    target_users: [underwriters]
+    business_objective: "Reduce time to gather context at renewal from hours to seconds"
+    output_type: ai_agent
+    # Research
+    # Category rehomed `copilot` → `underwriting` per v1 research (aligns with domain labels).
+    category: underwriting
+    literature_name: "Natural language underwriting copilot"
+    sources: [lma_ai_survey_2025, bcg_agentic_insurance_2025]
+    literature_quote: "underwriters repositioned as portfolio strategists supported by autonomous agents"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "quote_lifecycle, pricing, renewal_tracking all present — sufficient structured context for LLM grounding"
+    data_gaps: []
+
+  - id: underwriter_copilot_rag
+    status: aspirational
+    # Scoring
+    archetype: copilot
+    # NEW: rag_index_over_warehouse — vector index + structured-tool interface
+    # for LLM grounding. To be formally proposed in the next semantic-model pass.
+    required_primitives: [quote_lifecycle, claims_experience, renewal_tracking]
+    aspirational_primitives: [rag_index_over_warehouse]
+    optional_primitives: [broker_attribution, pricing_decomposition]
+    business_value_score: 0.85
+    implementation_effort_score: 0.75
+    target_users: [underwriters]
+    business_objective: "Natural-language query over policy history, comparables, and prior-year renewal decisions, grounded in warehouse data"
+    output_type: ai_agent
+    # Research
+    category: underwriting
+    literature_name: "RAG-based underwriter copilot over warehouse"
+    sources: [bcg_agentic_insurance_2025, evident_ai_tracker_q4_2025, lma_ai_survey_2025]
+    literature_quote: "underwriters repositioned as portfolio strategists supported by autonomous agents"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "distinct from the narrower renewal_pricing_copilot — requires RAG infra + guardrails not present in warehouse today"
+    # Gap-aware
+    blocker_class: tool_missing
+    expected_signal: >-
+      A RAG indexing layer + tool-call interface over warehouse assets —
+      vector index over UW comments, structured tool-calls for numeric
+      lookups, guardrails for confidential data. Requires the
+      rag_index_over_warehouse primitive to be added.
+    rationale: >-
+      87% YoY growth in insurance AI deployments concentrates on copilots;
+      the renewal_pricing_copilot covers renewal narrowly, but broader
+      UW-context Q&A is a distinct capability with its own architecture.
+    # CURATOR TODO: Part F Q5 — Keep both copilots (current brief recommendation)
+    # or merge. Distinct technical architectures argue for keeping separate.
+    data_gaps:
+      - gap_type: tool_missing
+        description: "No RAG / vector-index infrastructure over warehouse assets"
+
+  - id: submission_triage
+    status: aspirational
+    # Scoring
+    archetype: automation
+    # Both primitives are aspirational — `submission_intake` and
+    # `broker_communications` to be formally proposed in semantic-model pass.
+    required_primitives: []
+    aspirational_primitives: [submission_intake, broker_communications]
+    optional_primitives: [quote_lifecycle]
+    business_value_score: 0.90
+    implementation_effort_score: 0.80
+    target_users: [underwriters, operations]
+    business_objective: "Automated triage of inbound submissions to cut quote turnaround"
+    output_type: ai_agent
+    # Research
+    category: underwriting
+    literature_name: "Submission intake and automated triage"
+    sources: [lma_ai_survey_2025, hyperexponential_insurance_ai_2025]
+    literature_quote: "quote turnaround from three days to three minutes — 99% reduction (Hiscox)"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "requires unstructured submission documents and broker email data — not in analytical warehouse"
+    # Gap-aware
+    blocker_class: data_source_missing
+    expected_signal: >-
+      Placement platform / broker email ingestion — pre-bind artefacts
+      (broker emails, ACORD forms, PDF submissions, placement platform
+      feeds such as Whitespace/PPL). Warehouse is entirely post-bind PAS
+      data.
+    rationale: >-
+      Submission-to-quote cycle time is the single highest-leverage UW ops
+      metric per LMA / Hiscox case studies.
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "No submission/placement system data. Warehouse contains post-bind analytics only."
+        feasibility_rationale: >-
+          Submission triage requires pre-bind artefacts — broker emails,
+          structured submission forms, and placement platform data. The
+          current warehouse is populated exclusively from post-bind PAS
+          and quote system exports; no placement or intake system feed is
+          present.
+
+  # =========================================================================
+  # PRICING
+  # =========================================================================
 
   - id: technical_price_benchmarking
+    status: grounded
     # Scoring
     archetype: decision_support
     required_primitives: [pricing_decomposition, rate_change_monitoring]
-    # layer_pricing added April 2026 (v1 entity research) — layer-level
-    # benchmarking is a natural extension of technical price benchmarking
-    # for specialty business where rates vary by layer.
+    # layer_pricing added April 2026 — layer-level benchmarking is a natural
+    # extension for specialty business where rates vary by layer.
     optional_primitives: [claims_experience, profitability_decomposition, layer_pricing]
     business_value_score: 0.85
     implementation_effort_score: 0.50
@@ -186,34 +383,65 @@ initiative_taxonomy:
     feasibility_rationale: "pricing_decomposition and rate_change_monitoring fully present"
     data_gaps: []
 
-  - id: dynamic_pricing_model
+  - id: layer_rate_adequacy_monitoring
+    status: grounded
     # Scoring
-    archetype: automation
-    required_primitives: []
-    optional_primitives: []
-    business_value_score: 0.65
-    implementation_effort_score: 0.90
-    target_users: [pricing_team]
-    business_objective: "Adjust premiums dynamically based on real-time risk signals"
-    output_type: ai_agent
+    # NEW initiative v1 — driven by the layer_pricing primitive and the
+    # *_layer_pricing / *_layers asset families (do_layer_pricing, hx_fi_layer_pricing,
+    # contingency_layers, eupi layer views).
+    archetype: monitoring
+    required_primitives: [layer_pricing, pricing_decomposition]
+    optional_primitives: [rate_change_monitoring, portfolio_rate_monitoring]
+    business_value_score: 0.78
+    implementation_effort_score: 0.40
+    target_users: [pricing_team, underwriters]
+    business_objective: >-
+      Monitor per-layer rate adequacy in specialty excess business, where
+      attachment-point and limit dynamics dominate rate adequacy more than
+      account-level averages
+    output_type: monitoring_dashboard
     # Research
     category: pricing
-    literature_name: "Dynamic / behaviour-based pricing"
-    sources: [hyperexponential_insurance_ai_2025]
-    literature_quote: "dynamic pricing models that adjust premiums based on actual risk"
-    feasibility_against_warehouse: not_currently_feasible
-    feasibility_rationale: "requires real-time external risk data feeds and IoT/telematics — not applicable to specialty London Market"
-    data_gaps:
-      - gap_type: missing_source_system
-        description: "Specialty lines do not use behaviour-based dynamic pricing. Not applicable to this market."
-        feasibility_rationale: "Dynamic pricing depends on real-time behavioural signals (telematics, IoT
-          sensor data, live risk feeds) that are structurally absent from a specialty London Market
-          warehouse. Specialty risks are individually underwritten; no continuous exposure feed or
-          in-period risk adjustment mechanism exists in the current data architecture."
+    literature_name: "Layer-level rate adequacy monitoring in specialty excess"
+    sources: [hyperexponential_insurance_ai_2025, mckinsey_pnc_underwriting_2021]
+    literature_quote: "real-time monitoring of market microsegments"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "layer_pricing primitive present; *_layer_pricing assets bound in v1 entity research"
+    data_gaps: []
 
-  # --- CLAIMS ---
+  - id: rate_change_attribution_analytics
+    status: grounded
+    # Scoring
+    # NEW initiative v1 — direct-from-columns analytics product. Warehouse
+    # has gross_rarc, net_rarc, breadth_of_cover_change, gross_exposure_change,
+    # gross_limits_and_excess_change, policy_term_change, other_changes,
+    # claims_inflation as distinct columns.
+    archetype: analytics_product
+    required_primitives: [rate_change_monitoring, pricing_decomposition, exposure_structure]
+    optional_primitives: [portfolio_rate_monitoring]
+    business_value_score: 0.80
+    implementation_effort_score: 0.35
+    target_users: [pricing_team, actuaries, underwriters]
+    business_objective: >-
+      Decompose headline rate change into its underlying drivers (exposure change,
+      limit change, breadth-of-cover change, commission, claims inflation, other)
+      to inform renewal decisions
+    output_type: analytics_product
+    # Research
+    category: pricing
+    literature_name: "Rate-change attribution and decomposition"
+    sources: [mckinsey_pnc_underwriting_2021, cas_rate_change_attribution]
+    literature_quote: "rate-change decomposition"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "all decomposition columns already present in warehouse"
+    data_gaps: []
+
+  # =========================================================================
+  # CLAIMS
+  # =========================================================================
 
   - id: claims_experience_analysis
+    status: grounded
     # Scoring
     archetype: decision_support
     required_primitives: [claims_experience, pricing_decomposition]
@@ -233,14 +461,16 @@ initiative_taxonomy:
     data_gaps: []
 
   - id: claims_severity_prediction
+    status: partial
     # Scoring
     archetype: prediction
     required_primitives: [claims_experience]
+    aspirational_primitives: [claim_outcome_label]
     optional_primitives: [exposure_structure]
-    business_value_score: 0.80
+    business_value_score: 0.75
     implementation_effort_score: 0.65
     target_users: [actuaries, claims_team]
-    business_objective: "Predict ultimate claims severity to improve reserving adequacy"
+    business_objective: "Predict ultimate claims severity at notification to improve case reserving adequacy"
     output_type: analytics_product
     # Research
     category: claims
@@ -249,22 +479,40 @@ initiative_taxonomy:
     literature_quote: "claims management representing 37% of AI deployments"
     feasibility_against_warehouse: needs_foundational_work
     feasibility_rationale: "claims experience present but no outcome labels — no confirmed final settlement data to train severity model"
+    # Gap-aware
+    blocker_class: primitive_missing
+    expected_signal: >-
+      Closed-claim outcome labels — final_settlement_amount and
+      claim_closed_date fields per claim, representing ground truth for
+      a supervised severity model. Warehouse captures development-stage
+      incurred/paid but no closure field. Requires claim_outcome_label
+      primitive.
+    rationale: >-
+      Severity prediction is the highest-ROI claims ML application per
+      Evident AI tracker; without labels, models cannot be calibrated.
     data_gaps:
       - gap_type: insufficient_outcome_labels
         description: "claims_experience shows incurred/paid but no finalised settlement outcomes for ML target variable"
-        feasibility_rationale: "Warehouse captures development-stage incurred and paid amounts but has no
-          closed-claim ultimate or confirmed settlement field. Supervised severity models require a
-          labelled target variable representing true ultimate loss."
+        feasibility_rationale: >-
+          Warehouse captures development-stage incurred and paid amounts
+          but has no closed-claim ultimate or confirmed settlement field.
+          Supervised severity models require a labelled target variable
+          representing true ultimate loss.
 
   - id: claims_fraud_detection
+    status: aspirational
+    # CURATOR TODO: Part F Q2 — Brief lowered BV 0.75 → 0.70 noting specialty
+    # claim volumes may not support ML calibration. Alternative: remove as
+    # conceptually wrong for specialty, rather than demote to aspirational.
     # Scoring
     archetype: anomaly_detection
     required_primitives: []
+    aspirational_primitives: [fraud_labels, claim_event_timeline]
     optional_primitives: [claims_experience]
-    business_value_score: 0.75
+    business_value_score: 0.70
     implementation_effort_score: 0.70
     target_users: [claims_team, finance]
-    business_objective: "Flag anomalous claims patterns for investigation"
+    business_objective: "Flag anomalous claims patterns for SIU investigation"
     output_type: monitoring_dashboard
     # Research
     category: claims
@@ -273,27 +521,34 @@ initiative_taxonomy:
     literature_quote: "fraud detection — patterns across claims or submissions flagged instantly"
     feasibility_against_warehouse: not_currently_feasible
     feasibility_rationale: "no fraud labels, no confirmed fraud outcomes, no interaction history for behavioural signals"
+    # Gap-aware
+    blocker_class: primitive_missing
+    expected_signal: >-
+      Two primitives needed: fraud_labels (confirmed-fraud flags, SIU
+      referral outcomes, recoveries) for supervised training, and
+      claim_event_timeline (timestamped adjuster events, status
+      transitions, document uploads) for behavioural signals.
+    rationale: >-
+      Fraud loss is a material leakage item; but specialty claims volumes
+      are low, so model calibration needs strong labels — noting this may
+      never pay off in some specialty books.
     data_gaps:
       - gap_type: insufficient_outcome_labels
         description: "no confirmed fraud labels in warehouse"
-        feasibility_rationale: "No SIU referral outcomes, confirmed-fraud flags, or recovery dispositions
-          exist in the current warehouse. Without ground-truth labels, model thresholds cannot be
-          calibrated and alert precision is unknown."
       - gap_type: missing_event_timeline
         description: "no claims interaction or investigation event log"
-        feasibility_rationale: "Claims management system interaction records (adjuster contacts, status
-          changes, document uploads) are not currently ingested. Behavioural fraud signals such as
-          time-to-submission and re-open rates require timestamped events."
 
   - id: claims_automation
+    status: aspirational
     # Scoring
     archetype: automation
     required_primitives: []
+    aspirational_primitives: [claims_operational_events]
     optional_primitives: [claims_experience]
-    business_value_score: 0.85
+    business_value_score: 0.82
     implementation_effort_score: 0.85
     target_users: [claims_team, operations]
-    business_objective: "Automate routine claims processing via end-to-end agentic AI"
+    business_objective: "End-to-end agentic claims triage and routing"
     output_type: ai_agent
     # Research
     category: claims
@@ -302,22 +557,28 @@ initiative_taxonomy:
     literature_quote: "end-to-end automation via agentic AI in claims management"
     feasibility_against_warehouse: not_currently_feasible
     feasibility_rationale: "requires operational claims system data and workflow event log — warehouse contains experience analytics only"
+    # Gap-aware
+    blocker_class: data_source_missing
+    expected_signal: >-
+      Claims management system operational feed — registration events,
+      task assignments, reserve movements, adjuster workflow states.
+      Warehouse has finalised experience analytics only (EUPI/GGLR/GNLR
+      aggregates).
+    rationale: >-
+      Claims is 37% of insurance AI spend (Evident); agentic workflow
+      orchestration requires operational event streams.
     data_gaps:
       - gap_type: missing_source_system
         description: "no claims management system operational data in warehouse"
-        feasibility_rationale: "Automated claims routing requires real-time operational feeds from the
-          claims management system — claim registration events, task assignments, reserve movements,
-          and adjuster workflow states. The warehouse contains only finalised experience analytics
-          (EUPI/GGLR/GNLR aggregates); no operational or transactional claims data is ingested."
 
-  # --- PORTFOLIO ---
+  # =========================================================================
+  # PORTFOLIO MONITORING
+  # =========================================================================
 
   - id: portfolio_drift_monitoring
+    status: grounded
     # Scoring
     archetype: anomaly_detection
-    # portfolio_rate_monitoring promoted to required April 2026 (v1 entity
-    # research) — the portfolio-level rate roll-up is the direct feed for
-    # drift monitoring; this initiative's whole point is the roll-up view.
     required_primitives: [rate_change_monitoring, exposure_structure, portfolio_rate_monitoring]
     optional_primitives: [product_line_segmentation, claims_experience]
     business_value_score: 0.80
@@ -326,43 +587,78 @@ initiative_taxonomy:
     business_objective: "Early warning of portfolio drift before it becomes a loss event"
     output_type: monitoring_dashboard
     # Research
-    category: portfolio
+    # Category rehomed `portfolio` → `portfolio_monitoring` per v1 research.
+    category: portfolio_monitoring
     literature_name: "Portfolio drift and concentration monitoring"
     sources: [mckinsey_pnc_underwriting_2021, hyperexponential_insurance_ai_2025]
     literature_quote: "real-time monitoring of market microsegments detecting impact in weeks not months"
     feasibility_against_warehouse: ready_now
-    feasibility_rationale: "rate_change_monitoring and exposure_structure present"
+    feasibility_rationale: "rate_change_monitoring, exposure_structure, portfolio_rate_monitoring all present"
     data_gaps: []
 
-  - id: cat_exposure_monitoring
+  - id: product_line_performance_dashboard
+    status: grounded
     # Scoring
     archetype: monitoring
-    required_primitives: []
-    optional_primitives: [exposure_structure]
+    required_primitives: [product_line_segmentation, pricing_decomposition]
+    optional_primitives: [claims_experience, profitability_decomposition]
+    business_value_score: 0.72
+    implementation_effort_score: 0.30
+    target_users: [product_leads, underwriting_management]
+    business_objective: "Single view of portfolio health by product line"
+    output_type: monitoring_dashboard
+    # Research
+    # Category rehomed `monitoring` → `portfolio_monitoring` per v1 research.
+    category: portfolio_monitoring
+    literature_name: "Product line and class of business performance view"
+    sources: [evident_ai_tracker_q4_2025]
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "product_line_segmentation and pricing_decomposition present across all 5 product lines"
+    data_gaps: []
+
+  # =========================================================================
+  # EXPOSURE MANAGEMENT
+  # =========================================================================
+
+  - id: cat_exposure_monitoring
+    status: aspirational
+    # Scoring
+    archetype: monitoring
+    required_primitives: [exposure_structure]
+    aspirational_primitives: [cat_model_output]
+    optional_primitives: []
     business_value_score: 0.90
     implementation_effort_score: 0.80
     target_users: [exposure_management, portfolio_managers]
     business_objective: "Stress-test portfolio performance across catastrophe scenarios"
     output_type: monitoring_dashboard
     # Research
-    category: portfolio
+    category: exposure_management
     literature_name: "Catastrophe exposure and accumulation monitoring"
-    sources: [hyperexponential_insurance_ai_2025]
+    sources: [hyperexponential_insurance_ai_2025, lloyds_rds_standards]
     literature_quote: "stress-test portfolio performance across multiple scenarios simultaneously"
     feasibility_against_warehouse: not_currently_feasible
     feasibility_rationale: "no CAT model outputs, no PML data, no geographic risk scoring in warehouse"
+    # Gap-aware
+    blocker_class: tool_missing
+    expected_signal: >-
+      CAT model integration — PML estimates, event-set loss tables, RDS
+      outputs from RMS / AIR / Verisk. Exposure structure data
+      (jurisdiction, limit, deductible, layer) is present but cannot be
+      converted to modelled loss without a CAT engine.
+    rationale: >-
+      Lloyd's Minimum Standards require RDS reporting; CAT aggregation
+      is a regulatory floor, not optional.
     data_gaps:
       - gap_type: missing_source_system
         description: "no catastrophe modelling system output in warehouse (RMS/AIR/Verisk feeds absent)"
-        feasibility_rationale: "CAT exposure monitoring requires probabilistic loss outputs from a
-          catastrophe modelling platform (RMS, AIR, or Verisk). No PML estimates, event-set loss
-          tables, or geographic risk scores are present in the warehouse. Coverage structure fields
-          (jurisdiction, limit, deductible) are available but cannot be converted to modelled loss
-          without a CAT engine integration."
 
-  # --- DISTRIBUTION ---
+  # =========================================================================
+  # DISTRIBUTION
+  # =========================================================================
 
   - id: broker_performance_intelligence
+    status: partial
     # Scoring
     archetype: recommendation
     required_primitives: [broker_attribution, pricing_decomposition]
@@ -379,38 +675,60 @@ initiative_taxonomy:
     literature_quote: "broker-carrier connectivity as foundational to sustained performance"
     feasibility_against_warehouse: ready_with_enablement
     feasibility_rationale: "broker_attribution primitive present but broker_code missing — limits cross-portfolio broker analysis"
+    # Gap-aware
+    blocker_class: schema_group_missing
+    expected_signal: >-
+      A stable broker_code identifier (not just broker_primary name
+      string) to match the same broker entity across product lines,
+      syndicates, and legal entity variants. Would require a broker
+      master-data file or a string-normalisation dbt layer. Once present,
+      primitive broker_attribution becomes fully grounded.
+    rationale: >-
+      Broker-level P&L attribution is load-bearing for channel strategy;
+      a name string cannot be trusted across portfolios.
     data_gaps:
       - gap_type: weak_identifier
         description: "broker_code absent — broker_primary exists but is a name string not a stable identifier"
 
   - id: delegated_authority_monitoring
+    status: aspirational
     # Scoring
     archetype: monitoring
     required_primitives: [broker_attribution]
+    aspirational_primitives: [bordereaux_ingestion]
     optional_primitives: [claims_experience]
-    business_value_score: 0.70
-    implementation_effort_score: 0.60
+    business_value_score: 0.78
+    implementation_effort_score: 0.65
     target_users: [distribution_team, portfolio_managers]
-    business_objective: "Monitor coverholder and delegated authority portfolio performance"
+    business_objective: "Monitor coverholder and delegated-authority portfolio performance at risk-schedule level"
     output_type: analytics_product
     # Research
     category: distribution
     literature_name: "Delegated authority / coverholder performance monitoring"
-    sources: [lma_ai_survey_2025]
+    sources: [lma_ai_survey_2025, lloyds_coverholder_reporting_standards]
     literature_quote: "delegated authority and broker-led placement models expanding"
-    feasibility_against_warehouse: needs_foundational_work
+    feasibility_against_warehouse: not_currently_feasible
     feasibility_rationale: "coverholder column present but no bordereaux-level data in warehouse"
+    # Gap-aware
+    blocker_class: data_source_missing
+    expected_signal: >-
+      Bordereaux ingestion pipeline — individual risk schedules submitted
+      by coverholders under binding authorities, conforming to Lloyd's
+      Coverholder Reporting Standards. Warehouse has a coverholder name
+      field but no bordereaux data.
+    rationale: >-
+      DA is a material book for most Lloyd's carriers; DA portfolio drift
+      is a regulatory and performance concern.
     data_gaps:
       - gap_type: missing_source_system
         description: "no bordereaux ingestion in current warehouse — delegated authority data not modelled"
-        feasibility_rationale: "Coverholder monitoring requires bordereaux-level data — individual risk
-          schedules submitted by managing agents under binding authority agreements. While a
-          coverholder name field exists on policy records, no bordereaux ingestion pipeline is
-          present; all current data reflects direct-written business through the PAS."
 
-  # --- PROFITABILITY ---
+  # =========================================================================
+  # PROFITABILITY
+  # =========================================================================
 
   - id: profitability_decomposition_assistant
+    status: grounded
     # Scoring
     archetype: decision_support
     required_primitives: [profitability_decomposition, pricing_decomposition]
@@ -418,7 +736,7 @@ initiative_taxonomy:
     business_value_score: 0.75
     implementation_effort_score: 0.25
     target_users: [actuaries, finance, underwriting_leads]
-    business_objective: "Understand drivers of profitability gap vs plan"
+    business_objective: "Understand drivers of the profitability gap vs plan"
     output_type: analytics_product
     # Research
     category: profitability
@@ -429,69 +747,242 @@ initiative_taxonomy:
     feasibility_rationale: "profitability_decomposition and pricing_decomposition present"
     data_gaps: []
 
+  - id: subscription_share_performance
+    status: grounded
+    # Scoring
+    # NEW initiative v1 — exploits unused our_share_pct_*, london_order_percentage,
+    # london_estimated_signed_line, *_total_our_share_usd views. Explicitly
+    # subscription-share (not reinsurance cession).
+    archetype: monitoring
+    # NEW: subscription_share primitive — to be formally proposed in
+    # semantic-model pass. Columns exist today; primitive is definable now.
+    required_primitives: [pricing_decomposition, profitability_decomposition]
+    aspirational_primitives: [subscription_share]
+    optional_primitives: [portfolio_rate_monitoring]
+    business_value_score: 0.70
+    implementation_effort_score: 0.35
+    target_users: [finance, portfolio_managers, syndicate_management]
+    business_objective: >-
+      Measure net-to-gross economics driven by Lloyd's subscription position —
+      how signed-line %, London order %, and our-share % move gross-to-net
+      profitability by syndicate position
+    output_type: monitoring_dashboard
+    # Research
+    category: profitability
+    literature_name: "Subscription-market position analytics"
+    sources: [mckinsey_pnc_underwriting_2021, lloyds_subscription_market_2024]
+    literature_quote: "n/a — Lloyd's subscription-market mechanics are documented in Lloyd's market bulletins"
+    feasibility_against_warehouse: ready_now
+    feasibility_rationale: "underlying columns (our_share_pct_*, london_order_percentage, london_estimated_signed_line, *_total_our_share_usd views) all present; needs subscription_share primitive to formalise"
+    # CURATOR TODO: Part F Q4 — Validate with finance/portfolio managers
+    # whether subscription-share is load-bearing for syndicate economics,
+    # or whether those columns are reporting artefacts.
+    data_gaps: []
+
+  # =========================================================================
+  # RESERVING
+  # =========================================================================
+
   - id: loss_ratio_forecasting
+    status: partial
     # Scoring
     archetype: prediction
     required_primitives: [claims_experience, profitability_decomposition]
+    aspirational_primitives: [claims_development_triangle]
     optional_primitives: [pricing_decomposition]
     business_value_score: 0.80
     implementation_effort_score: 0.55
     target_users: [actuaries, finance]
-    business_objective: "Project loss ratios and actuarial reserving requirements"
+    business_objective: "Project ultimate loss ratios for reserving and plan"
     output_type: analytics_product
     # Research
-    category: profitability
+    # Category rehomed `profitability` → `reserving` per v1 research (truer
+    # actuarial home). CURATOR TODO: Part F Q1 — accept rehoming, or keep
+    # in profitability to avoid a domain with only aspirational items?
+    category: reserving
     literature_name: "Loss ratio forecasting and actuarial projection"
     sources: [mckinsey_pnc_underwriting_2021]
     literature_quote: "3 to 5 point improvement in loss ratios from leading analytics capabilities"
     feasibility_against_warehouse: needs_foundational_work
     feasibility_rationale: "ELR columns present but no time-series reserving triangles or development patterns in warehouse"
+    # Gap-aware
+    blocker_class: schema_group_missing
+    expected_signal: >-
+      Claims development triangles — incurred and paid amounts at successive
+      evaluation dates for the same YOA cohort. Warehouse holds most-recent
+      snapshot only; needs a time-series ingestion of gglr_*, gnlr_*,
+      burn_rate_* at monthly/quarterly evaluation dates, keyed by
+      (yoa, development_month). Materialises the claims_development_triangle
+      primitive.
+    rationale: >-
+      Chain-ladder / BF methods are industry-standard; without triangles the
+      actuarial function operates blind on current-year estimates.
     data_gaps:
       - gap_type: missing_history
         description: "no claims development triangles — incurred/paid present at point-in-time but not as development series"
-        feasibility_rationale: "Actuarial loss ratio projection requires claims development triangles —
-          incurred and paid amounts at successive evaluation dates for the same year-of-account
-          cohort. The warehouse holds only the most recent development snapshot per claim; no
-          historical evaluation series is retained, making chain-ladder and Bornhuetter-Ferguson
-          methods inapplicable without a new time-series ingestion pattern."
+        feasibility_rationale: >-
+          Actuarial loss ratio projection requires claims development
+          triangles — incurred and paid amounts at successive evaluation
+          dates for the same year-of-account cohort. The warehouse holds
+          only the most recent development snapshot per claim; no historical
+          evaluation series is retained, making chain-ladder and
+          Bornhuetter-Ferguson methods inapplicable without a new
+          time-series ingestion pattern.
 
-  # --- COPILOTS / AGENTS ---
-
-  - id: renewal_pricing_copilot
+  - id: ibnr_reserving_support
+    status: aspirational
     # Scoring
-    archetype: copilot
-    required_primitives: [quote_lifecycle, pricing_decomposition, renewal_tracking]
-    # layer_pricing added April 2026 (v1 entity research) — renewal decisions
-    # in specialty business involve layer-level price comparisons.
-    optional_primitives: [claims_experience, broker_attribution, layer_pricing]
-    business_value_score: 0.80
-    implementation_effort_score: 0.70
-    target_users: [underwriters]
-    business_objective: "Reduce time to gather context at renewal from hours to seconds"
-    output_type: ai_agent
-    # Research
-    category: copilot
-    literature_name: "Natural language underwriting copilot"
-    sources: [lma_ai_survey_2025, bcg_agentic_insurance_2025]
-    literature_quote: "underwriters repositioned as portfolio strategists supported by autonomous agents"
-    feasibility_against_warehouse: ready_now
-    feasibility_rationale: "quote_lifecycle, pricing, renewal_tracking all present — sufficient structured context for LLM grounding"
-    data_gaps: []
-
-  - id: product_line_performance_dashboard
-    # Scoring
-    archetype: monitoring
-    required_primitives: [product_line_segmentation, pricing_decomposition]
+    # NEW initiative v1 — fills reserving-domain gap (was absent from catalogue).
+    archetype: prediction
+    required_primitives: []
+    aspirational_primitives: [claims_development_triangle, yoa_cohort_snapshots]
     optional_primitives: [claims_experience, profitability_decomposition]
-    business_value_score: 0.72
-    implementation_effort_score: 0.30
-    target_users: [product_leads, underwriting_management]
-    business_objective: "Single view of portfolio health by product line"
+    business_value_score: 0.85
+    implementation_effort_score: 0.60
+    target_users: [actuaries, finance]
+    business_objective: "Chain-ladder and Bornhuetter-Ferguson ultimate loss estimation by YOA cohort"
+    output_type: analytics_product
+    # Research
+    category: reserving
+    literature_name: "IBNR reserving via chain-ladder / BF methods"
+    sources: [cas_reserving_practice_note, ifoa_reserving_practice_standard]
+    literature_quote: "chain-ladder and Bornhuetter-Ferguson methods"
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "warehouse has yoa column and dev_pattern hints but no time-series cohorting"
+    # Gap-aware
+    blocker_class: schema_group_missing
+    expected_signal: >-
+      Same as loss_ratio_forecasting — claims_development_triangle primitive
+      plus yoa_cohort_snapshots. Warehouse has yoa column and dev_pattern
+      column hinting at development patterns but no time-series cohorting.
+    rationale: >-
+      Reserving is a regulated actuarial function (IFRS 17, Lloyd's Minimum
+      Standards); this is not optional, it's a gap.
+    data_gaps:
+      - gap_type: missing_history
+        description: "no yoa-cohort time-series snapshots"
+
+  # =========================================================================
+  # OPERATIONS
+  # =========================================================================
+
+  - id: endorsement_mta_monitoring
+    status: aspirational
+    # Scoring
+    # NEW initiative v1 — fills operations-domain gap (was absent).
+    archetype: monitoring
+    required_primitives: []
+    aspirational_primitives: [endorsement_events]
+    optional_primitives: []
+    business_value_score: 0.55
+    implementation_effort_score: 0.50
+    target_users: [operations, portfolio_managers]
+    business_objective: "Monitor in-force change activity (MTAs, cancellations, mid-term endorsements)"
     output_type: monitoring_dashboard
     # Research
-    category: monitoring
-    literature_name: "Product line and class of business performance view"
-    sources: [evident_ai_tracker_q4_2025]
-    feasibility_against_warehouse: ready_now
-    feasibility_rationale: "product_line_segmentation and pricing_decomposition present across all 5 product lines"
-    data_gaps: []
+    category: operations
+    literature_name: "In-force endorsement / MTA monitoring"
+    sources: [lloyds_minimum_standards_policy_admin]
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "operations domain explicitly near-zero signal per domain_keywords.yaml"
+    # Gap-aware
+    blocker_class: data_source_missing
+    expected_signal: >-
+      Endorsement events from PAS — endorsement_id, endorsement_date,
+      change_type, premium impact, policy_status transitions. The operations
+      domain is explicitly flagged as near-zero signal in domain_keywords.yaml.
+    rationale: >-
+      In-force change activity affects retention, premium development, and
+      regulatory reporting. Low value at a specialty carrier (endorsements
+      are few) but load-bearing at scale.
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "no endorsement event stream from PAS"
+
+  # =========================================================================
+  # COMPLIANCE
+  # =========================================================================
+
+  - id: regulatory_reporting_qrt
+    status: aspirational
+    # Scoring
+    # NEW initiative v1 — fills compliance-domain gap (was absent).
+    archetype: automation
+    required_primitives: []
+    aspirational_primitives: [regulatory_reporting_schema]
+    optional_primitives: [profitability_decomposition]
+    business_value_score: 0.60
+    implementation_effort_score: 0.75
+    target_users: [finance, compliance]
+    business_objective: "Automate production of Solvency II QRTs and Lloyd's returns"
+    output_type: automation
+    # Research
+    category: compliance
+    literature_name: "Regulatory reporting automation (SII QRT / Lloyd's returns)"
+    sources: [solvency_ii_qrt_specification, lloyds_market_returns_2024]
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "no conformed regulatory-reporting layer; mappings from warehouse measures to SII / Lloyd's line-of-business categories absent"
+    # Gap-aware
+    blocker_class: governance_missing
+    expected_signal: >-
+      A regulatory-reporting conformed layer — mappings from warehouse
+      measures to SII line-of-business categories, Lloyd's syndicate
+      result schedules, IFRS 17 measurement model. Compliance domain is
+      near-zero in the warehouse today.
+    rationale: >-
+      Regulatory reporting is not discretionary; automation is a proven
+      ROI lever per PRA supervisory statements.
+    data_gaps:
+      - gap_type: missing_conformed_layer
+        description: "no SII / Lloyd's regulatory-reporting mapping layer"
+
+  # =========================================================================
+  # REINSURANCE
+  # =========================================================================
+
+  - id: reinsurance_recovery_tracking
+    status: aspirational
+    # Scoring
+    # NEW initiative v1 — fills reinsurance-domain gap (was absent).
+    # IMPORTANT: our_share_pct_* are Lloyd's subscription shares, NOT
+    # reinsurance cessions. This initiative needs separate outward-RI data.
+    archetype: monitoring
+    required_primitives: []
+    aspirational_primitives: [outward_reinsurance_programme]
+    optional_primitives: [profitability_decomposition]
+    business_value_score: 0.70
+    implementation_effort_score: 0.60
+    target_users: [finance, reinsurance_team]
+    business_objective: "Track outward cessions and reinsurance recoverables by treaty and programme"
+    output_type: monitoring_dashboard
+    # Research
+    category: reinsurance
+    literature_name: "Outward reinsurance recovery tracking"
+    sources: [ifoa_reinsurance_practice_note]
+    feasibility_against_warehouse: not_currently_feasible
+    feasibility_rationale: "no outward reinsurance programme data in warehouse; subscription shares are not cessions"
+    # Gap-aware
+    blocker_class: data_source_missing
+    expected_signal: >-
+      Outward reinsurance programme data — treaty terms, cession amounts,
+      recoverables, reinstatements. Explicitly flagged in domain_keywords.yaml:
+      our_share_pct* are Lloyd's subscription shares NOT reinsurance cessions.
+      No reinsurance data in warehouse.
+    rationale: >-
+      Outward reinsurance economics materially affect net result; absent
+      data is a structural gap for any gross-vs-net decomposition.
+    data_gaps:
+      - gap_type: missing_source_system
+        description: "no outward reinsurance programme data"
+
+# ---------------------------------------------------------------------------
+# Removed in v1 research
+# ---------------------------------------------------------------------------
+# `dynamic_pricing_model` removed per v1 brief (Part E). Rationale: the former
+# entry itself documented "not applicable to specialty London Market"
+# (behaviour-based / telematics / IoT). Not gap-blocked; conceptually wrong
+# for specialty. If dynamic pricing becomes relevant (e.g. parametric
+# specialty), add a new, correctly-scoped initiative.
+#
+# CURATOR TODO: Part F Q3 — Confirm removal. Is there a scoped version
+# (parametric specialty pricing) that should be retained as aspirational?

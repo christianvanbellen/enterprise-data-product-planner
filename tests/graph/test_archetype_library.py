@@ -11,9 +11,9 @@ from graph.opportunity.archetype_library import (
 
 
 def test_library_loads_from_yaml_without_error():
-    """Library initialisation must succeed and load all 19 initiatives."""
+    """Library initialisation must succeed and load all 26 initiatives."""
     library = InitiativeArchetypeLibrary()
-    assert len(library.all_initiatives()) == 19
+    assert len(library.all_initiatives()) == 26
 
 
 def test_all_initiatives_have_literature_sources():
@@ -39,8 +39,10 @@ def test_initiatives_by_feasibility_not_currently_feasible():
 def test_known_infeasible_initiatives_in_feasibility_query():
     library = InitiativeArchetypeLibrary()
     infeasible = set(library.initiatives_by_feasibility("not_currently_feasible"))
-    expected = {"submission_triage", "dynamic_pricing_model",
-                "claims_fraud_detection", "claims_automation", "cat_exposure_monitoring"}
+    # dynamic_pricing_model removed April 2026 (v1 initiative research) — was
+    # documented as "not applicable to specialty London Market", not a gap.
+    expected = {"submission_triage", "claims_fraud_detection",
+                "claims_automation", "cat_exposure_monitoring"}
     assert expected <= infeasible, (
         f"Missing from infeasible set: {expected - infeasible}"
     )

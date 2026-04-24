@@ -11,8 +11,13 @@ gap_types:
   - weak_identifier
   - incomplete_relationship
   - missing_conformed_entity
+  - missing_conformed_layer       # added April 2026 (v1 initiative research) —
+                                  # regulatory/compliance mapping layers
   - insufficient_documentation
   - low_test_coverage
   - insufficient_outcome_labels
   - missing_event_timeline
   - missing_source_system
+  - tool_missing                  # added April 2026 (v1 initiative research) —
+                                  # external tool / platform integrations
+                                  # (CAT engine, RAG infra, etc.)
