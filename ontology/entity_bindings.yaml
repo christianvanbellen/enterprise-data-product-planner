@@ -87,6 +87,10 @@ conformed_group_to_entity:
   policy_totals:          policy
   profitability_measures: profitability_component
   rate_monitoring:        pricing_component
+  pricing_component:      pricing_component
+  exposure:               exposure
+  layer:                  layer
+  quote:                  quote
 
 # ──────────────────────────────────────────────────────────────────────────
 # Signal 2: per-entity column signatures

@@ -14,3 +14,10 @@ candidates:
   - policy_id
   - pas_id
   - customer_id
+  # yoa (year of account) is a Lloyd's/London-market partition key. It appears
+  # in 6 claims-experience assets (eupi_claims_details, eupi_specified_loss,
+  # london_cash_in_transit_and_general_specie_claims_experience, and the hx_
+  # variants) which would otherwise report grain=[quote_id] only — incorrect,
+  # since the true grain on those tables is (quote_id, yoa). Already declared
+  # as a grounded required column on claim_development in primitives.yaml.
+  - yoa

@@ -969,7 +969,11 @@ class SpecAssembler:
 
             right_type = _atype.get(right, "unknown")
             right_grain = source_asset_grains.get(right, [])
-            jk = col.join_key or (grain_keys[0] if len(grain_keys) == 1 else "")
+            shared_grain = [g for g in left_grain if g in right_grain]
+            jk = col.join_key or (
+                " + ".join(shared_grain) if shared_grain
+                else (grain_keys[0] if len(grain_keys) == 1 else "")
+            )
 
             grain_match = bool(right_grain) and set(left_grain) == set(right_grain)
             aggregation_needed = bool(right_grain) and len(right_grain) > len(left_grain)
