@@ -1,0 +1,169 @@
+version: 2
+
+# Seed-level column type declarations for Snowflake. Without these, dbt
+# infers types from the CSV — which usually produces VARCHAR for everything.
+# Explicit types matter because downstream models cast and aggregate measures
+# as numbers and filter on dates.
+#
+# Numeric precision: NUMBER(38, 4) for percentages / ratios (4 dp), NUMBER(38, 2)
+# for monetary measures, NUMBER(38, 6) for the elr / *_to_* ratio columns where
+# extra precision avoids rounding artefacts.
+
+seeds:
+
+  - name: ll_quote_setup
+    description: >
+      Quote header dimensions (one row per quote_id). Carries the broker /
+      underwriter / policyholder / currency / inception-expiry context that
+      downstream marts need to enrich layer-level facts.
+    config:
+      column_types:
+        platform:                    varchar
+        quote_id:                    varchar
+        model_name:                  varchar
+        last_updated_at:             timestamp_ntz
+        _pdm_last_update_timestamp:  timestamp_ntz
+        quote_date:                  date
+        policyholder_name:           varchar
+        entity:                      varchar
+        branch:                      varchar
+        underwriter:                 varchar
+        broker_primary:              varchar
+        inception_date:              date
+        expiry_date:                 date
+        premium_currency:            varchar
+        policy_is_quoted:            boolean
+
+  - name: ll_quote_policy_detail
+    description: >
+      Liberty-share view (USD) of pricing decomposition at quote-layer-pas
+      grain. Carries the technical / modified-technical / sold premium
+      hierarchy plus expected loss costs and ELR ratios.
+    config:
+      column_types:
+        layer_id:                          varchar
+        quote_id:                          varchar
+        pas_id:                            varchar
+        _pdm_last_update_timestamp:        timestamp_ntz
+        rating_basis:                      varchar
+        conditional_premium_reduction:     varchar
+        our_share_pct:                     number(38, 4)
+        our_share_pct_london:              number(38, 4)
+        our_share_pct_non_london:          number(38, 4)
+        london_estimated_signed_line:      number(38, 4)
+        london_order_percentage:           number(38, 4)
+        tech_gnwp:                         number(38, 2)
+        modtech_gnwp:                      number(38, 2)
+        sold_gnwp:                         number(38, 2)
+        tech_ggwp:                         number(38, 2)
+        modtech_ggwp:                      number(38, 2)
+        sold_ggwp:                         number(38, 2)
+        sold_ggwp_our_share:               number(38, 2)
+        tech_elc:                          number(38, 2)
+        modtech_elc:                       number(38, 2)
+        tech_gg_elr:                       number(38, 6)
+        modtech_gg_elr:                    number(38, 6)
+        tech_gn_elr:                       number(38, 6)
+        modtech_gn_elr:                    number(38, 6)
+        commission:                        number(38, 2)
+        sold_to_modtech:                   number(38, 6)
+        modtech_to_tech:                   number(38, 6)
+
+  - name: quote_policy_detail
+    description: >
+      Full-share twin (100% market view) of ll_quote_policy_detail. Same
+      grain and schema; measures are scaled to the full subscription order
+      so ll_*.measure = quote_policy_detail.measure × our_share_pct.
+    config:
+      column_types:
+        layer_id:                          varchar
+        quote_id:                          varchar
+        pas_id:                            varchar
+        _pdm_last_update_timestamp:        timestamp_ntz
+        rating_basis:                      varchar
+        conditional_premium_reduction:     varchar
+        our_share_pct:                     number(38, 4)
+        our_share_pct_london:              number(38, 4)
+        our_share_pct_non_london:          number(38, 4)
+        london_estimated_signed_line:      number(38, 4)
+        london_order_percentage:           number(38, 4)
+        tech_gnwp:                         number(38, 2)
+        modtech_gnwp:                      number(38, 2)
+        sold_gnwp:                         number(38, 2)
+        tech_ggwp:                         number(38, 2)
+        modtech_ggwp:                      number(38, 2)
+        sold_ggwp:                         number(38, 2)
+        sold_ggwp_our_share:               number(38, 2)
+        tech_elc:                          number(38, 2)
+        modtech_elc:                       number(38, 2)
+        tech_gg_elr:                       number(38, 6)
+        modtech_gg_elr:                    number(38, 6)
+        tech_gn_elr:                       number(38, 6)
+        modtech_gn_elr:                    number(38, 6)
+        commission:                        number(38, 2)
+        sold_to_modtech:                   number(38, 6)
+        modtech_to_tech:                   number(38, 6)
+
+  - name: ll_quote_coverage_detail
+    description: >
+      Coverage-level attributes at (quote_id, layer_id, pas_id, coverage_id)
+      grain. Carries exposure / limit / excess / deductible plus the policy
+      term context (inception, expiry, jurisdiction, claims trigger).
+    config:
+      column_types:
+        coverage_id:                       varchar
+        layer_id:                          varchar
+        quote_id:                          varchar
+        pas_id:                            varchar
+        _pdm_last_update_timestamp:        timestamp_ntz
+        quote_name:                        varchar
+        new_renewal:                       varchar
+        section:                           varchar
+        coverage:                          varchar
+        subcoveragecode:                   varchar
+        inception_date:                    date
+        expiry_date:                       date
+        exposure:                          number(38, 2)
+        exposure_type:                     varchar
+        limit:                             number(38, 2)
+        limit_type:                        varchar
+        excess:                            number(38, 2)
+        deductible_value:                  number(38, 2)
+        deductible_type:                   varchar
+        claims_trigger:                    varchar
+        policy_coverage_jurisdiction:      varchar
+        primary_coverage:                  boolean
+
+  - name: rate_monitoring_total_our_share_usd
+    description: >
+      Renewal-only risk-adjusted rate-change measures at quote_id grain.
+      Compares current quote economics against the expiring policy
+      (inception − 365d). gross_rarc / net_rarc decompose into
+      claims_inflation + breadth_of_cover_change + policy_term_change.
+    config:
+      column_types:
+        quote_id:                          varchar
+        _pdm_last_update_timestamp:        timestamp_ntz
+        expiring_inception_date:           date
+        expiring_expiry_date:              date
+        expiring_exposure:                 number(38, 2)
+        expiring_limit:                    number(38, 2)
+        expiring_excess:                   number(38, 2)
+        expiring_deductible:               number(38, 2)
+        expiring_our_share_pct:            number(38, 4)
+        expiring_commission_percentage:    number(38, 4)
+        expiring_ggwp:                     number(38, 2)
+        expiring_gnwp:                     number(38, 2)
+        expiring_modtech_gnwp:             number(38, 2)
+        expiring_tech_gnwp:                number(38, 2)
+        expiring_as_if_ggwp:               number(38, 2)
+        gross_rarc:                        number(38, 6)
+        net_rarc:                          number(38, 6)
+        claims_inflation:                  number(38, 6)
+        breadth_of_cover_change:           number(38, 6)
+        gross_exposure_change:             number(38, 6)
+        gross_limits_and_excess_change:    number(38, 6)
+        policy_term_change:                number(38, 6)
+        other_changes:                     number(38, 6)
+        our_share_pct_london:              number(38, 4)
+        our_share_pct_non_london:          number(38, 4)

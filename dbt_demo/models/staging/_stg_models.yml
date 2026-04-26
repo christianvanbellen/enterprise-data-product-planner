@@ -1,0 +1,561 @@
+version: 2
+
+# ─────────────────────────────────────────────────────────────────────────
+# Staging layer — one model per Pack B seed.
+#
+# Conventions:
+#   • Materialized as views (cheap, always-fresh against the seed).
+#   • Casts and column-name normalisation only — no joins, no aggregations.
+#   • Tests cover (a) primary-key uniqueness, (b) referential integrity to
+#     stg_ll_quote_setup, (c) accepted_values on enumerated dimensions, and
+#     (d) sanity bounds on share / loss-ratio / rate-change measures.
+#
+# Test severity:
+#   • PK / FK / share_pct bounds          → error (must hold).
+#   • Accepted-value enums                 → warn (synthetic mock data may add
+#                                            new values; relax to error once
+#                                            the warehouse contract stabilises).
+# ─────────────────────────────────────────────────────────────────────────
+
+models:
+
+  # ───────────────────────────────────────────────────────────────────────
+  - name: stg_ll_quote_setup
+    description: |
+      Quote header dimension at quote_id grain. Carries the broker /
+      underwriter / policyholder / currency / inception-expiry context
+      that downstream marts use to enrich layer-level facts.
+    columns:
+
+      - name: quote_id
+        description: Business key for a quoted risk. Stable across a quote's lifecycle (quote → bind → endorsement → renewal lookup).
+        tests:
+          - not_null
+          - unique
+
+      - name: source_platform
+        description: Originating quoting platform (LSM_Quoting_Platform, Contingency_v2, EU_PI_Product_v1).
+        tests:
+          - not_null
+
+      - name: pricing_model_name
+        description: Pricing model version applied at quote time (e.g. RM_v3.3, EUPI_v1.4).
+
+      - name: policyholder_name
+        description: Insured legal entity name.
+        tests:
+          - not_null
+
+      - name: carrier_entity
+        description: Liberty carrier writing entity (Liberty Specialty Markets).
+
+      - name: carrier_branch
+        description: Office responsible for the underwriting decision (London, Dublin, Madrid, Singapore).
+        tests:
+          - accepted_values:
+              values: ['London', 'Dublin', 'Madrid', 'Singapore']
+              severity: warn
+
+      - name: underwriter
+        description: Lead underwriter assigned to the quote.
+        tests:
+          - not_null
+
+      - name: broker_primary
+        description: Lead broker placing the risk.
+        tests:
+          - not_null
+
+      - name: premium_currency
+        description: Original-currency code for premium amounts (USD predominates; GBP / EUR exist).
+        tests:
+          - accepted_values:
+              values: ['USD', 'GBP', 'EUR']
+
+      - name: quote_date
+        description: Date the quote record was created in the source system.
+        tests:
+          - not_null
+
+      - name: inception_date
+        description: Policy inception (cover start) date.
+        tests:
+          - not_null
+
+      - name: expiry_date
+        description: Policy expiry (cover end) date.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= inception_date"
+
+      - name: is_quoted
+        description: Flag indicating the policy was successfully quoted (vs declined / withdrawn).
+
+      - name: last_updated_at
+        description: Source-system last-update timestamp.
+
+      - name: loaded_at
+        description: Pipeline ingestion timestamp; useful for slowly-changing-dimension freshness checks.
+
+  # ───────────────────────────────────────────────────────────────────────
+  - name: stg_ll_quote_policy_detail
+    description: |
+      Liberty-share (LSM, USD) view of pricing decomposition at quote-layer-pas
+      grain. The technical / modified-technical / sold premium hierarchy
+      (`tech_gnwp` ≥ `modtech_gnwp` ≥ `sold_gnwp` typically) is the spine of
+      pricing-adequacy and rate-change analytics.
+
+      Twin: stg_quote_policy_detail (full-share). For each row,
+      `ll_*.measure ≡ stg_quote_policy_detail.measure × our_share_pct`.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [quote_id, layer_id, pas_id]
+    columns:
+
+      - name: quote_id
+        description: Quote-level business key. Foreign key to stg_ll_quote_setup.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_ll_quote_setup')
+              field: quote_id
+
+      - name: layer_id
+        description: Layer-level business key (a quote may have 1-3 layers in a structured programme).
+        tests:
+          - not_null
+
+      - name: pas_id
+        description: Policy Administration System identifier — denormalised onto every layer for downstream joins.
+        tests:
+          - not_null
+
+      - name: rating_basis
+        description: Rating basis for the quote (Premium / Limit / Exposure).
+        tests:
+          - accepted_values:
+              values: ['Premium', 'Limit', 'Exposure']
+              severity: warn
+
+      - name: conditional_premium_reduction
+        description: Free-text annotation of any premium reduction conditional on policy events (e.g. claims-free renewal credit). Most rows are 'None'.
+
+      - name: our_share_pct
+        description: Liberty's signed-line participation as a fraction of the full subscription order (typical range 0.05–0.30).
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and our_share_pct <= 1"
+
+      - name: our_share_pct_london
+        description: Portion of Liberty's signed-line written through the London market panel.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and our_share_pct_london <= our_share_pct + 0.0001"
+
+      - name: our_share_pct_non_london
+        description: Portion written through non-London (regional, EU, US) panels. Sum of london + non_london ≈ our_share_pct.
+
+      - name: london_estimated_signed_line
+        description: Estimated London-market signed line at quote time; basis for early subscription-economics analysis before final placement.
+
+      - name: london_order_percentage
+        description: Fraction of the subscription order placed in London (50–95% on most specialty risks).
+
+      - name: tech_gnwp
+        description: Technical Premium — Gross Net Written Premium. The actuarial benchmark price before any underwriter modifier.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: modtech_gnwp
+        description: Modified Technical Premium GNWP — technical premium adjusted for bespoke risk factors (loss experience, programme structure). Usually ≤ tech_gnwp but can uplift for adverse experience.
+
+      - name: sold_gnwp
+        description: Sold Premium — the price actually agreed with the broker. Typically ≤ modtech_gnwp in a softening market.
+
+      - name: tech_ggwp
+        description: Technical Premium — Gross Gross Written Premium. Tech_gnwp grossed up for brokerage commission.
+
+      - name: modtech_ggwp
+        description: Modified Technical Premium — GGWP basis.
+
+      - name: sold_ggwp
+        description: Sold Premium — GGWP basis (sold_gnwp grossed up for commission).
+
+      - name: sold_ggwp_our_share
+        description: Our-share carve-out of sold_ggwp; matches sold_ggwp in the LSM-share view.
+
+      - name: tech_elc
+        description: Technical Expected Loss Cost — actuarial expected loss for the layer at the technical price point.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: modtech_elc
+        description: Modified Technical Expected Loss Cost — ELC adjusted for the same risk factors as modtech_gnwp.
+
+      - name: tech_gg_elr
+        description: Expected Loss Ratio at technical price (GGWP basis) — tech_elc / tech_ggwp.
+
+      - name: modtech_gg_elr
+        description: Expected Loss Ratio at modified-technical price (GGWP basis).
+
+      - name: tech_gn_elr
+        description: Expected Loss Ratio at technical price (GNWP basis) — tech_elc / tech_gnwp.
+
+      - name: modtech_gn_elr
+        description: Expected Loss Ratio at modified-technical price (GNWP basis).
+
+      - name: commission
+        description: Brokerage commission amount paid to the broker_primary (USD, Liberty share). Typically 10-25% of sold_gnwp.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: sold_to_modtech_ratio
+        description: sold_gnwp / modtech_gnwp — pricing adequacy versus bespoke benchmark. <1 implies softening below modtech.
+
+      - name: modtech_to_tech_ratio
+        description: modtech_gnwp / tech_gnwp — magnitude of the underwriter modifier vs raw technical price.
+
+      - name: loaded_at
+        description: Pipeline ingestion timestamp.
+
+  # ───────────────────────────────────────────────────────────────────────
+  - name: stg_quote_policy_detail
+    description: |
+      Full-share (100% market) twin of stg_ll_quote_policy_detail. Same grain
+      and column shape; measures represent the full subscription order rather
+      than Liberty's signed line. Used by initiatives that benchmark Liberty
+      economics against the wider market.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [quote_id, layer_id, pas_id]
+    columns:
+
+      - name: quote_id
+        description: Quote-level business key.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_ll_quote_setup')
+              field: quote_id
+
+      - name: layer_id
+        description: Layer-level business key.
+        tests:
+          - not_null
+
+      - name: pas_id
+        description: Policy Administration System identifier.
+        tests:
+          - not_null
+
+      - name: rating_basis
+        description: Rating basis for the quote.
+
+      - name: conditional_premium_reduction
+        description: Free-text annotation of any premium reduction conditional on policy events.
+
+      - name: our_share_pct
+        description: For full-share rows this is always 1.0; retained for join compatibility.
+
+      - name: our_share_pct_london
+        description: For full-share rows this is always 1.0.
+
+      - name: our_share_pct_non_london
+        description: For full-share rows this is always 0.0.
+
+      - name: london_estimated_signed_line
+        description: Estimated London signed line as a fraction of the full subscription order.
+
+      - name: london_order_percentage
+        description: Fraction of the subscription order placed in London.
+
+      - name: tech_gnwp_full
+        description: Technical Premium GNWP at the full subscription order (100% market).
+
+      - name: modtech_gnwp_full
+        description: Modified Technical Premium GNWP at full share.
+
+      - name: sold_gnwp_full
+        description: Sold Premium GNWP at full share.
+
+      - name: tech_ggwp_full
+        description: Technical Premium GGWP at full share.
+
+      - name: modtech_ggwp_full
+        description: Modified Technical Premium GGWP at full share.
+
+      - name: sold_ggwp_full
+        description: Sold Premium GGWP at full share.
+
+      - name: sold_ggwp_our_share
+        description: Our-share component of sold_ggwp_full (equals stg_ll_quote_policy_detail.sold_ggwp).
+
+      - name: tech_elc_full
+        description: Technical Expected Loss Cost at full share.
+
+      - name: modtech_elc_full
+        description: Modified Technical Expected Loss Cost at full share.
+
+      - name: tech_gg_elr
+        description: Expected Loss Ratio at technical price (GGWP).
+
+      - name: modtech_gg_elr
+        description: Expected Loss Ratio at modified-technical price (GGWP).
+
+      - name: tech_gn_elr
+        description: Expected Loss Ratio at technical price (GNWP).
+
+      - name: modtech_gn_elr
+        description: Expected Loss Ratio at modified-technical price (GNWP).
+
+      - name: commission_full
+        description: Brokerage commission amount at the full subscription order.
+
+      - name: sold_to_modtech_ratio
+        description: sold_gnwp_full / modtech_gnwp_full.
+
+      - name: modtech_to_tech_ratio
+        description: modtech_gnwp_full / tech_gnwp_full.
+
+      - name: loaded_at
+        description: Pipeline ingestion timestamp.
+
+  # ───────────────────────────────────────────────────────────────────────
+  - name: stg_ll_quote_coverage_detail
+    description: |
+      Coverage-grain attributes — exposure / limit / excess / deductible plus
+      policy term context (inception, expiry, jurisdiction, claims trigger).
+      A single layer typically has 1-2 coverages; multi-coverage layers must
+      be aggregated to layer grain before joining to fact tables whose grain
+      is (quote_id, layer_id, pas_id).
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [quote_id, layer_id, pas_id, coverage_id]
+    columns:
+
+      - name: quote_id
+        description: Quote-level business key.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_ll_quote_setup')
+              field: quote_id
+
+      - name: layer_id
+        description: Layer-level business key.
+        tests:
+          - not_null
+
+      - name: pas_id
+        description: Policy Administration System identifier.
+        tests:
+          - not_null
+
+      - name: coverage_id
+        description: Coverage-level business key — finest grain in the Pack B mock set.
+        tests:
+          - not_null
+
+      - name: quote_name
+        description: Human-readable quote label (typically "<policyholder> <inception_year>").
+
+      - name: new_renewal
+        description: Indicates whether the quote is for new business or a renewal of an in-force policy.
+        tests:
+          - accepted_values:
+              values: ['New', 'Renewal']
+
+      - name: section
+        description: Top-level product line / class of business (European Professional Indemnity, Directors and Officers, General Aviation, Cash in Transit and Specie, Contingency).
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['European Professional Indemnity', 'Directors and Officers', 'General Aviation', 'Cash in Transit and Specie', 'Contingency']
+              severity: warn
+
+      - name: coverage
+        description: Specific coverage type within the section (e.g. Professional Indemnity, Cyber, Side A, Hull).
+
+      - name: subcoverage_code
+        description: Sub-coverage classification code (originally `subcoveragecode` in the source).
+
+      - name: is_primary_coverage
+        description: True for the layer's primary coverage; false for ancillary coverages.
+
+      - name: inception_date
+        description: Coverage inception date — usually equal to the quote's policy inception_date.
+        tests:
+          - not_null
+
+      - name: expiry_date
+        description: Coverage expiry date.
+        tests:
+          - not_null
+
+      - name: exposure
+        description: Insured exposure value (turnover, wage roll, TIV, or count, per exposure_type).
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: exposure_type
+        description: Unit / basis of the exposure measure (Turnover / Wage Roll / TIV / Number of Insureds).
+        tests:
+          - accepted_values:
+              values: ['Turnover', 'Wage Roll', 'TIV', 'Number of Insureds']
+              severity: warn
+
+      - name: coverage_limit_amount
+        description: Layer limit (max indemnification per limit_type basis). Renamed from `limit` (Snowflake reserved word).
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: limit_type
+        description: Limit basis — Each and Every Loss / Aggregate / Each Claim.
+        tests:
+          - accepted_values:
+              values: ['Each and Every Loss', 'Aggregate', 'Each Claim']
+              severity: warn
+
+      - name: excess
+        description: Excess attaching above the deductible — defines where the layer's coverage begins on the loss curve.
+
+      - name: deductible_value
+        description: Insured retention before the layer responds.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: deductible_type
+        description: Deductible basis — Each and Every Loss / Aggregate.
+        tests:
+          - accepted_values:
+              values: ['Each and Every Loss', 'Aggregate']
+              severity: warn
+
+      - name: claims_trigger
+        description: Trigger basis for claim reporting — Claims Made / Occurrence / Losses Discovered.
+        tests:
+          - accepted_values:
+              values: ['Claims Made', 'Occurrence', 'Losses Discovered']
+              severity: warn
+
+      - name: policy_coverage_jurisdiction
+        description: Geographic scope of the cover (Worldwide / US excl. Worldwide / Worldwide excl. US / UK only / EU only).
+
+      - name: loaded_at
+        description: Pipeline ingestion timestamp.
+
+  # ───────────────────────────────────────────────────────────────────────
+  - name: stg_rate_monitoring
+    description: |
+      Renewal-only risk-adjusted rate-change measures at quote_id grain.
+      Compares the current quote against the expiring policy
+      (inception − 365d). Decomposition identity:
+
+         net_rarc ≈ gross_rarc − claims_inflation − breadth_of_cover_change
+                              − policy_term_change − other_changes
+
+      Joins to stg_ll_quote_setup on quote_id; absent for new business — use
+      LEFT JOIN downstream so non-renewal quotes are not dropped.
+    columns:
+
+      - name: quote_id
+        description: Quote-level business key. Renewal-only — non-renewal quotes have no row here.
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_ll_quote_setup')
+              field: quote_id
+
+      - name: expiring_inception_date
+        description: Inception date of the expiring policy (typically current inception − 365 days).
+        tests:
+          - not_null
+
+      - name: expiring_expiry_date
+        description: Expiry date of the expiring policy.
+
+      - name: expiring_exposure
+        description: Insured exposure on the expiring period.
+
+      - name: expiring_limit
+        description: Layer limit on the expiring period.
+
+      - name: expiring_excess
+        description: Excess on the expiring period.
+
+      - name: expiring_deductible
+        description: Deductible on the expiring period.
+
+      - name: expiring_our_share_pct
+        description: Liberty signed-line on the expiring period.
+
+      - name: expiring_commission_pct
+        description: Commission rate on the expiring period.
+
+      - name: our_share_pct_london
+        description: London-market portion of Liberty's signed line at the current quote.
+
+      - name: our_share_pct_non_london
+        description: Non-London portion of Liberty's signed line at the current quote.
+
+      - name: expiring_ggwp
+        description: Expiring Gross Gross Written Premium.
+
+      - name: expiring_gnwp
+        description: Expiring Gross Net Written Premium.
+
+      - name: expiring_modtech_gnwp
+        description: Modified Technical GNWP on the expiring period.
+
+      - name: expiring_tech_gnwp
+        description: Technical GNWP on the expiring period.
+
+      - name: expiring_as_if_ggwp
+        description: As-if-renewed expiring GGWP — the expiring premium re-quoted at current technical pricing, used as the rate-change baseline.
+
+      - name: gross_rarc
+        description: Gross Risk-Adjusted Rate Change. Soften = negative, harden = positive. Industry range typically [-15%, +15%] in benign markets.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= -0.50 and gross_rarc <= 0.50"
+              severity: warn
+
+      - name: net_rarc
+        description: Net Risk-Adjusted Rate Change — gross_rarc adjusted for claims inflation and breadth-of-cover change.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= -0.50 and net_rarc <= 0.50"
+              severity: warn
+
+      - name: claims_inflation
+        description: Forward claims inflation assumption applied at renewal pricing (typically 2-8%).
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: breadth_of_cover_change
+        description: Coverage scope expansion / contraction expressed as an equivalent rate-change percentage (positive = scope expansion).
+
+      - name: gross_exposure_change
+        description: Year-on-year change in insured exposure expressed as a percentage.
+
+      - name: gross_limits_and_excess_change
+        description: Year-on-year change in limit / excess structure expressed as an equivalent rate-change percentage.
+
+      - name: policy_term_change
+        description: Adjustment for changes in policy term length (e.g. 6-month renewal of a 12-month expiring policy).
+
+      - name: other_changes
+        description: Catch-all for residual rate-change adjustments not classified above.
+
+      - name: loaded_at
+        description: Pipeline ingestion timestamp.

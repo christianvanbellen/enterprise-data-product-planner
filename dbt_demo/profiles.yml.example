@@ -1,0 +1,35 @@
+# Example Snowflake profile for the dbt_demo project.
+#
+# Copy this file to ~/.dbt/profiles.yml (creating the directory if needed) and
+# replace the placeholder values. The `dbt_demo` profile name must match the
+# `profile:` field in dbt_project.yml.
+#
+# Authentication options:
+#   - password    : simplest; not recommended for shared workstations.
+#   - keypair     : preferred for service accounts (set private_key_path).
+#   - externalbrowser : interactive SSO; works for human dev accounts.
+#
+# Spec-driven materialization defaults:
+#   schema target_pack_b → seeds load to <database>.raw_pack_b
+#                        → staging models build to <database>.stg_pack_b
+#                        → marts build to <database>.mart_pack_b
+
+dbt_demo:
+  target: dev
+  outputs:
+
+    dev:
+      type: snowflake
+      account: "<your_account>.<region>"      # e.g. xy12345.eu-west-1
+      user: "<your_user>"
+      password: "<your_password>"             # or remove and use keypair / SSO
+      # private_key_path: "~/.snowflake/keys/rsa_key.p8"
+      # authenticator: externalbrowser
+
+      role: "<your_role>"                     # must have CREATE SCHEMA on the database
+      database: "<your_database>"             # the demo will create raw/stg/mart schemas inside
+      warehouse: "<your_warehouse>"           # XS is plenty for ~1k rows
+      schema: "dbt_demo"                      # default schema; per-folder schemas suffix this
+      threads: 4
+      client_session_keep_alive: false
+      query_tag: dbt_demo

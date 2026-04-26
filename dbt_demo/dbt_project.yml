@@ -1,0 +1,44 @@
+name: 'dbt_demo'
+version: '0.1.0'
+config-version: 2
+
+# Profile to use from ~/.dbt/profiles.yml — see profiles.yml.example.
+profile: 'dbt_demo'
+
+# Standard dbt project paths
+model-paths:    ["models"]
+analysis-paths: ["analyses"]
+test-paths:     ["tests"]
+seed-paths:     ["seeds"]
+macro-paths:    ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# ───────────────────────────────────────────────────────────────────────────
+# Seeds — Pack B mock data, loaded via `dbt seed`
+# ───────────────────────────────────────────────────────────────────────────
+# Per-seed column types are declared in seeds/_seeds.yml. quote_columns is set
+# to false so column names are stored unquoted (case-insensitive lookup matches
+# the warehouse spec definitions which use lowercase identifiers).
+seeds:
+  dbt_demo:
+    +schema: raw_pack_b
+    +quote_columns: false
+    +full_refresh: true
+
+# ───────────────────────────────────────────────────────────────────────────
+# Models — written into a mart_* schema, materialized as tables by default.
+# Stage layer is materialized as views to keep storage light.
+# ───────────────────────────────────────────────────────────────────────────
+models:
+  dbt_demo:
+    +materialized: table
+    staging:
+      +materialized: view
+      +schema: stg_pack_b
+    marts:
+      +materialized: table
+      +schema: mart_pack_b
