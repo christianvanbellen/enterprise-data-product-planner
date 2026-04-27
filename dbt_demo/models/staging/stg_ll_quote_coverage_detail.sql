@@ -40,7 +40,7 @@ select
     -- Exposure / limit / excess / deductible
     exposure                          as exposure,
     exposure_type                     as exposure_type,
-    "limit"                           as coverage_limit_amount,
+    "LIMIT"                           as coverage_limit_amount,
     limit_type                        as limit_type,
     excess                            as excess,
     deductible_value                  as deductible_value,
