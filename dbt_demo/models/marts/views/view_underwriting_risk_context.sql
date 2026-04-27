@@ -9,9 +9,9 @@
 -- Initiative answered: underwriting_decision_support
 -- Asker:               underwriter
 -- Cadence:             per_quote
--- Question:            For the risk in front of me right now, what does the
---                      warehouse already know about comparable layers, this
---                      insured's history, and our pricing position?
+-- Question:            For this renewal, what is our pricing position
+--                      versus technical, and how has the risk shape moved
+--                      year-on-year?
 --
 -- Sourced from:        mart_renewal_decision_support (canonical mart)
 --
@@ -19,6 +19,11 @@
 -- "decision card" an underwriter reads before binding. Same row grain;
 -- different presentation: queue is a ranked list, this is a per-row
 -- detail view consumed at quote time.
+--
+-- Out of scope: prior-year claims context. The original framing of the
+-- question asked about this insured's claims history; that branch was
+-- moved out of scope as Pack B has no claims data, and the question was
+-- narrowed to its data-supported core (pricing position + YoY shape).
 -- ─────────────────────────────────────────────────────────────────────────
 
 select

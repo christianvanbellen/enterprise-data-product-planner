@@ -243,15 +243,17 @@ initiative_taxonomy:
   - id: underwriting_decision_support
     status: grounded
     business_question: >-
-      For the risk in front of me right now, what does the warehouse
-      already know about comparable layers, this insured's history, and
-      our pricing position?
+      For this renewal, what is our pricing position versus technical, and
+      how has the risk shape moved year-on-year?
     business_question_asker: underwriter
     business_question_cadence: per_quote
     follow_up_questions:
-      - How have similar risks performed at renewal?
-      - Where does this layer sit vs comparable rate-on-line benchmarks?
-      - Has this insured triggered any prior claims that affect appetite?
+      - How does this layer's rate-on-line compare to comparable book?
+      - Where has the year-on-year exposure or limit shifted?
+    # Note: The previous question framing also asked about insured claims
+    # history — moved out of scope as Pack B has no claims data. Will
+    # re-enter once a claims_experience seed is added (see Pack B+ in
+    # docs/risks_pack_b_specs.md).
     # Scoring
     archetype: decision_support
     required_primitives: [quote_lifecycle, pricing_decomposition, exposure_structure]

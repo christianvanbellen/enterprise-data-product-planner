@@ -548,15 +548,38 @@ def build_rate_monitoring_layer(quote_dim, layers_by_quote, coverages_by_layer):
             else:
                 exp_exposure = exp_limit = exp_excess = exp_deductible = 0.0
 
-            # Independent layer-level rate-change components.
-            gross_rarc       = random.triangular(-0.15, 0.15, -0.02)
-            claims_inflation = random.uniform(0.02, 0.08)
-            breadth          = random.uniform(-0.05, 0.05)
-            exposure_change  = random.uniform(-0.10, 0.15)
-            limits_change    = random.uniform(-0.05, 0.10)
-            term_change      = random.uniform(-0.05, 0.05)
-            other_changes    = random.uniform(-0.02, 0.02)
-            net_rarc         = gross_rarc - claims_inflation - breadth + random.uniform(-0.01, 0.01)
+            # Layer-level rate-change components. Each driver is drawn
+            # independently from a domain-plausible distribution; gross_rarc
+            # is then *constructed* as their sum plus a small unexplained
+            # residual. This mirrors the real-world invariant: in a curated
+            # actuarial decomposition the headline rate change reconciles
+            # to its named drivers up to a small unexplained residual,
+            # rather than being an unrelated draw.
+            claims_inflation     = random.uniform(0.02, 0.08)
+            breadth              = random.uniform(-0.05, 0.05)
+            exposure_change      = random.uniform(-0.10, 0.15)
+            limits_change        = random.uniform(-0.05, 0.10)
+            term_change          = random.uniform(-0.05, 0.05)
+            other_changes        = random.uniform(-0.02, 0.02)
+            unexplained_residual = random.gauss(0, 0.005)
+            gross_rarc           = (
+                claims_inflation
+                + breadth
+                + exposure_change
+                + limits_change
+                + term_change
+                + other_changes
+                + unexplained_residual
+            )
+            # net_rarc derived from gross_rarc (gross of inflation+breadth);
+            # tight epsilon preserves the historical noise term without
+            # breaking reconciliation.
+            net_rarc = (
+                gross_rarc
+                - claims_inflation
+                - breadth
+                + random.uniform(-0.005, 0.005)
+            )
 
             rows.append({
                 "quote_id":                  q["quote_id"],
