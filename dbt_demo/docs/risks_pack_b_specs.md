@@ -25,11 +25,11 @@ exclusively by **premium-weighted aggregation** of the layer-grain seed
 (weight = `tech_gnwp_full` per layer). A consumer who premium-weights the
 layer rows back up will exactly match the quote-grain seed.
 
-**What this unlocks.** `mart_pricing_adequacy_monitoring_dashboard` now
-LEFT JOINs `stg_rate_monitoring_layer` on `(quote_id, layer_id)` — each
-layer reports its own rate change rather than inheriting a quote-level
-average. The original "carry quote-level rarc down to every layer"
-artefact is gone.
+**What this unlocks.** The canonical `mart_pricing_adequacy` (and its
+`view_portfolio_drift_heatmap`) LEFT JOINs `stg_rate_monitoring_layer`
+on `(quote_id, layer_id)` — each layer reports its own rate change
+rather than inheriting a quote-level average. The original "carry
+quote-level rarc down to every layer" artefact is gone.
 
 **Planner / spec implication.** Pack B definition lesson: when the
 underlying source warehouse offers signal at multiple grains, the minimal
@@ -46,9 +46,10 @@ pattern that lets the demo offer both grains without inconsistency.
 original Pack B's seed had no `layer_id`.
 
 **Status: RESOLVED via Pack B extension (2026-04-26).** Same fix as R-1.
-The new `stg_rate_monitoring_layer` view exposes the layer-grain seed and
-`mart_layer_rate_adequacy_monitoring_dashboard` now joins on the full
-`(quote_id, layer_id)` key as the spec prescribed.
+The new `stg_rate_monitoring_layer` view exposes the layer-grain seed
+and the canonical `mart_pricing_adequacy` (consumed by
+`view_layer_attachment_ladder`) joins on the full `(quote_id, layer_id)`
+key as the spec prescribed.
 
 **Planner / spec implication.** Same root cause as R-1. Pack B definition
 should drive from the spec's prescribed join keys: every join key the
@@ -71,7 +72,7 @@ rate_change_attribution_analytics initiative is to surface the *named drivers*
 of headline rate movement. The spec selects two date columns and ignores the
 seven decomposition columns sitting next to them.
 
-**Resolution in code.** `mart_rate_change_attribution_analytics_dashboard`
+**Resolution in code.** The canonical `mart_pricing_adequacy` (consumed by `view_rate_change_waterfall`)
 pulls all decomposition columns through and adds a derived
 `gross_rarc_residual_check` column to flag rows where the components don't
 algebraically reconcile to gross_rarc.
@@ -95,7 +96,7 @@ the 250 quotes in `ll_quote_setup`, only 182 are renewals (per
 rate-change row. Joining as INNER drops them; joining as LEFT keeps them with
 NULL decomposition columns.
 
-**Resolution in code.** `mart_rate_change_attribution_analytics_dashboard`
+**Resolution in code.** The canonical `mart_pricing_adequacy` (consumed by `view_rate_change_waterfall`)
 filters to `new_renewal = 'Renewal'` in the final select — this mart is
 deliberately renewal-only. Pricing-adequacy and layer-adequacy marts use LEFT
 JOINs to keep new business present (where the adequacy gap is still

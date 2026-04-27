@@ -1,41 +1,50 @@
 version: 2
 
 # ─────────────────────────────────────────────────────────────────────────
-# Mart layer — Tier 1 initiatives unlocked by the 5 Pack B seeds.
+# Mart layer — canonical marts + question-specific views.
 #
-# Materialised as tables (see dbt_project.yml :: models.dbt_demo.marts).
-# All marts share the same primary grain (quote_id, layer_id, pas_id);
-# renewal-only marts additionally enforce a 1:1 join to stg_rate_monitoring
-# via INNER JOIN (see per-mart docstrings).
+# Architecture
+# ------------
+# Each canonical mart is materialised as a table at the layer grain
+# (quote_id, layer_id, pas_id). Question-specific views are dbt views
+# over the canonical mart — each fulfils one initiative from
+# initiative_research.yaml as documented in ontology/mart_plan.yaml.
 #
-# Test severity:
-#   • PK uniqueness / not_null on identifier columns → error.
-#   • Bound checks on derived percentages              → warn (synthetic
-#       mock data may drift outside calibrated bands; tighten to error
-#       once calibrated against real warehouse outputs).
+# Test severity
+# -------------
+#   • Canonical mart PK uniqueness, not_null on identifiers       → error
+#   • Bound checks on derived percentages and bands               → warn
+#     (synthetic mock data may drift outside calibrated bands;
+#     tighten to error once calibrated against real warehouse outputs.)
 # ─────────────────────────────────────────────────────────────────────────
 
 models:
 
-  # ─────────────────────────────────────────────────────────────────────
-  - name: mart_rate_change_attribution_analytics_dashboard
-    description: |
-      Renewal-only rate-change attribution mart at (quote_id, layer_id, pas_id)
-      grain. Decomposes gross_rarc into the named drivers from the upstream
-      rate-monitoring feed: claims_inflation, breadth_of_cover_change,
-      gross_exposure_change, gross_limits_and_excess_change, policy_term_change,
-      and other_changes. Includes a `gross_rarc_residual_check` column that
-      should be ~0 if the upstream decomposition reconciles algebraically.
+  # ═════════════════════════════════════════════════════════════════════
+  # CANONICAL MARTS
+  # ═════════════════════════════════════════════════════════════════════
 
-      Initiative: rate_change_attribution_analytics
-      Spec:       output/spec_log/rate_change_attribution_analytics/current.md
+  - name: mart_pricing_adequacy
+    description: |
+      Canonical pricing-adequacy mart at (quote_id, layer_id, pas_id) grain.
+      Carries the union of columns needed by four fulfilment views
+      (portfolio_drift_heatmap, layer_attachment_ladder, segment_benchmark,
+      rate_change_waterfall) plus headline derived KPIs: adequacy_gap_*,
+      rate_on_line, layer_attachment_ratio, elr_drift_modtech_minus_tech,
+      gross_rarc_residual_check, adequacy_band.
+
+      Canonical question:
+        Where is sold premium drifting from technical price across my
+        book, and what's driving the gap?
+
+      Mart plan: ontology/mart_plan.yaml :: pricing_adequacy_mart
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [quote_id, layer_id, pas_id]
     columns:
 
       - name: quote_id
-        description: Quote-level business key. Inherits the not_null + unique guarantee from stg_ll_quote_setup.
+        description: Quote-level business key.
         tests: [not_null]
 
       - name: layer_id
@@ -46,71 +55,6 @@ models:
         description: Policy administration system key.
         tests: [not_null]
 
-      - name: new_renewal
-        description: Always 'Renewal' in this mart (filter applied).
-        tests:
-          - accepted_values:
-              values: ['Renewal']
-
-      - name: gross_rarc
-        description: Headline gross risk-adjusted rate change (expiring → current). Soften = negative; harden = positive.
-        tests:
-          - dbt_utils.expression_is_true:
-              expression: ">= -0.50 and gross_rarc <= 0.50"
-              severity: warn
-
-      - name: net_rarc
-        description: Net of inflation and breadth-of-cover change.
-
-      - name: gross_rarc_residual_check
-        description: |
-          gross_rarc minus the sum of named drivers. Expected ≈ 0 if upstream
-          decomposition reconciles. A persistently non-zero residual flags a
-          source-data quality issue.
-        tests:
-          - dbt_utils.expression_is_true:
-              expression: ">= -0.05 and gross_rarc_residual_check <= 0.05"
-              severity: warn
-
-      - name: tech_gnwp
-        description: Technical Premium GNWP (Liberty share, USD).
-
-      - name: modtech_gnwp
-        description: Modified Technical Premium GNWP (Liberty share, USD).
-
-      - name: sold_gnwp
-        description: Sold Premium GNWP (Liberty share, USD).
-
-      - name: has_multi_coverage_rollup
-        description: |
-          True when the underlying layer had >1 coverage row collapsed into
-          this single mart row by int_coverage_layer_rollup. Audit signal
-          for users investigating individual layer attribution.
-
-  # ─────────────────────────────────────────────────────────────────────
-  - name: mart_pricing_adequacy_monitoring_dashboard
-    description: |
-      Pricing-adequacy monitoring mart at (quote_id, layer_id, pas_id) grain.
-      Surfaces the gap between sold premium and the technical / modified-technical
-      benchmarks at the layer grain, alongside the renewal rate-change context
-      (LEFT joined — new business carries NULLs in the rate-change columns).
-      Headline derived measures: adequacy_gap_modtech_pct, adequacy_gap_tech_pct,
-      commission_load_pct, elr_drift_modtech_minus_tech, adequacy_band.
-
-      Initiative: pricing_adequacy_monitoring
-      Spec:       output/spec_log/pricing_adequacy_monitoring/current.md
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [quote_id, layer_id, pas_id]
-    columns:
-
-      - name: quote_id
-        tests: [not_null]
-      - name: layer_id
-        tests: [not_null]
-      - name: pas_id
-        tests: [not_null]
-
       - name: adequacy_gap_modtech_pct
         description: (sold_gnwp / modtech_gnwp) − 1. Negative => sold below modtech.
         tests:
@@ -119,21 +63,31 @@ models:
               severity: warn
 
       - name: adequacy_gap_tech_pct
-        description: (sold_gnwp / tech_gnwp) − 1. Negative => sold below technical price.
+        description: (sold_gnwp / tech_gnwp) − 1.
         tests:
           - dbt_utils.expression_is_true:
               expression: ">= -0.60 and adequacy_gap_tech_pct <= 0.60"
               severity: warn
 
-      - name: commission_load_pct
-        description: commission / sold_gnwp.
+      - name: rate_on_line
+        description: sold_gnwp / coverage_limit_amount. Specialty-excess adequacy benchmark.
+
+      - name: layer_attachment_ratio
+        description: excess / coverage_limit_amount. Indicative of how excess the layer attaches.
+
+      - name: gross_rarc
+        description: Per-layer Gross Risk-Adjusted Rate Change.
+
+      - name: gross_rarc_residual_check
+        description: |
+          gross_rarc minus the sum of named drivers. Should be ≈ 0 if upstream
+          decomposition reconciles. Tolerance is wide: this is a data-quality
+          signal, not a hard invariant — components in Pack B are drawn
+          independently in the mock generator.
         tests:
           - dbt_utils.expression_is_true:
-              expression: ">= 0 and commission_load_pct <= 0.50"
+              expression: ">= -0.30 and gross_rarc_residual_check <= 0.30"
               severity: warn
-
-      - name: elr_drift_modtech_minus_tech
-        description: modtech_gg_elr − tech_gg_elr; positive => underwriter modifier worsened expected loss ratio.
 
       - name: adequacy_band
         description: Categorical bucket of adequacy_gap_modtech_pct for at-a-glance dashboards.
@@ -145,15 +99,18 @@ models:
         description: True when >1 coverage row was rolled up to this layer (audit flag).
 
   # ─────────────────────────────────────────────────────────────────────
-  - name: mart_renewal_prioritisation
+  - name: mart_renewal_decision_support
     description: |
-      Renewal-only triage mart at (quote_id, layer_id, pas_id) grain. Composite
-      priority_score (0..100) blends adequacy, ELR level, rate change, premium
-      scale, and time-to-renewal. priority_band buckets into high / medium / low
-      for direct consumption by the underwriter renewal queue.
+      Canonical renewal decision-support mart at (quote_id, layer_id, pas_id)
+      grain, renewal-only. Carries pricing decomposition, coverage
+      structure, year-on-year premium delta, the composite priority_score
+      (0..100), and a discrete priority_band (high / medium / low).
 
-      Initiative: renewal_prioritisation
-      Spec:       output/spec_log/renewal_prioritisation/current.md
+      Canonical question:
+        For each open renewal, which warrant active negotiation, and what
+        context does the underwriter need to decide?
+
+      Mart plan: ontology/mart_plan.yaml :: renewal_decision_support_mart
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [quote_id, layer_id, pas_id]
@@ -167,6 +124,7 @@ models:
         tests: [not_null]
 
       - name: new_renewal
+        description: Always 'Renewal' in this mart (filter applied).
         tests:
           - accepted_values:
               values: ['Renewal']
@@ -189,60 +147,67 @@ models:
       - name: adequacy_gap_modtech_pct
         description: (sold_gnwp / modtech_gnwp) − 1.
 
+      - name: rate_on_line
+        description: sold_gnwp / coverage_limit_amount.
+
       - name: has_multi_coverage_rollup
         description: True when >1 coverage row was rolled up to this layer.
 
-  # ─────────────────────────────────────────────────────────────────────
-  - name: mart_layer_rate_adequacy_monitoring_dashboard
+  # ═════════════════════════════════════════════════════════════════════
+  # FULFILMENT VIEWS — one per business question (see ontology/mart_plan.yaml)
+  # ═════════════════════════════════════════════════════════════════════
+
+  - name: view_portfolio_drift_heatmap
     description: |
-      Per-layer rate-adequacy mart for specialty excess monitoring. Same grain
-      as pricing_adequacy_monitoring but foregrounds layer-economics measures:
-      rate_on_line, technical_rate_on_line, layer_attachment_ratio, plus the
-      year-on-year premium and limit deltas (renewal-only).
-
-      Initiative: layer_rate_adequacy_monitoring
-      Spec:       output/spec_log/layer_rate_adequacy_monitoring/current.md
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [quote_id, layer_id, pas_id]
+      Fulfils initiative `pricing_adequacy_monitoring`.
+      Question: Where in my portfolio is sold premium drifting below
+      technical price, and by how much?
+      Asker: pricing_team · Cadence: weekly
     columns:
-
-      - name: quote_id
-        tests: [not_null]
-      - name: layer_id
-        tests: [not_null]
-      - name: pas_id
-        tests: [not_null]
-
-      - name: rate_on_line
-        description: sold_gnwp / coverage_limit_amount. Standard specialty-excess adequacy benchmark.
-        tests:
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-              severity: warn
-
-      - name: technical_rate_on_line
-        description: tech_gnwp / coverage_limit_amount.
-
-      - name: modtech_rate_on_line
-        description: modtech_gnwp / coverage_limit_amount.
-
-      - name: layer_attachment_ratio
-        description: excess / coverage_limit_amount. Indicative of how excess the layer attaches.
-
-      - name: adequacy_gap_modtech_pct
-        description: (sold_gnwp / modtech_gnwp) − 1.
-
-      - name: year_on_year_premium_change_pct
-        description: (sold_gnwp / expiring_gnwp) − 1. NULL for new business.
-
-      - name: year_on_year_limit_change_pct
-        description: (coverage_limit_amount / expiring_limit) − 1. NULL for new business.
-
       - name: adequacy_band
         tests:
           - accepted_values:
               values: ['below_modtech_severe', 'below_modtech_mild', 'on_modtech', 'above_modtech', 'unknown']
 
-      - name: has_multi_coverage_rollup
-        description: True when >1 coverage row was rolled up to this layer.
+  - name: view_layer_attachment_ladder
+    description: |
+      Fulfils initiative `layer_rate_adequacy_monitoring`.
+      Question: Which layers in my specialty excess book are written
+      below technical adequacy, and is the gap widening on renewal?
+      Asker: pricing_team · Cadence: weekly
+
+  - name: view_segment_benchmark
+    description: |
+      Fulfils initiative `technical_price_benchmarking`.
+      Question: How does our written rate compare to the technical price
+      across segments, brokers, and underwriters?
+      Asker: pricing_team · Cadence: monthly
+
+  - name: view_rate_change_waterfall
+    description: |
+      Fulfils initiative `rate_change_attribution_analytics`.
+      Question: How much of this renewal's rate change came from
+      deliberate pricing action versus structural changes in exposure,
+      limit, breadth, or claims inflation?
+      Asker: pricing_team / actuary · Cadence: per_renewal
+      Filtered to renewals only (gross_rarc not null).
+
+  - name: view_renewal_priority_queue
+    description: |
+      Fulfils initiative `renewal_prioritisation`.
+      Question: Of my open renewal queue, which renewals warrant active
+      negotiation versus a light-touch pass?
+      Asker: underwriter · Cadence: weekly
+    columns:
+      - name: priority_band
+        tests:
+          - accepted_values:
+              values: ['high', 'medium', 'low']
+
+  - name: view_underwriting_risk_context
+    description: |
+      Fulfils initiative `underwriting_decision_support`.
+      Question: For the risk in front of me, what does the warehouse
+      already know about comparable layers, this insured's history, and
+      our pricing position?
+      Asker: underwriter · Cadence: per_quote

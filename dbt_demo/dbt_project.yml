@@ -45,3 +45,9 @@ models:
     marts:
       +materialized: table
       +schema: mart_pack_b
+      # Per-question views over the canonical marts. Each view answers a
+      # single business question by selecting a subset of canonical columns
+      # (and filtering where appropriate). Materialised as views so they
+      # cost nothing to add — the question contract becomes cheap.
+      views:
+        +materialized: view

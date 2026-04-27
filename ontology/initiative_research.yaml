@@ -8,8 +8,11 @@
 # Field schema
 # ---------------------------------------------------------------------------
 #
-# Each initiative entry combines three concerns:
+# Each initiative entry combines four concerns:
 #
+#   Question fields  — business_question, business_question_asker,
+#                      business_question_cadence, follow_up_questions
+#                      (see "Business-question schema" below)
 #   Scoring fields   — archetype, required_primitives, optional_primitives,
 #                      business_value_score, implementation_effort_score,
 #                      target_users, business_objective, output_type
@@ -29,6 +32,40 @@
 # feasibility_against_warehouse caps readiness regardless of primitive matching.
 # Valid values: ready_now | ready_with_enablement | needs_foundational_work | not_currently_feasible
 #
+# ---------------------------------------------------------------------------
+# Business-question schema (introduced April 2026)
+# ---------------------------------------------------------------------------
+#
+# Every initiative carries a single sharp business question and the role +
+# cadence that defines who asks it and how often. The downstream planner
+# uses these to (a) drive question-aligned column selection in spec
+# generation and (b) cluster initiatives into a compressed mart_plan
+# (see ontology/mart_plan.yaml) — one mart can fulfil multiple
+# initiatives whose questions are answerable from a single grain.
+#
+# Field rules:
+#
+#   business_question         — singular, in business-user voice. If you
+#                               need "and" / a semicolon to phrase it, the
+#                               initiative is mis-scoped or should be split.
+#   business_question_asker   — the role that asks it (pricing_team,
+#                               underwriter, actuary, finance,
+#                               portfolio_manager, exposure_management,
+#                               claims_team, distribution_team, operations,
+#                               compliance, syndicate_management).
+#   business_question_cadence — when it is asked. One of:
+#                               per_quote | per_renewal | per_claim |
+#                               continuous | weekly | monthly | quarterly |
+#                               on_event | ad_hoc
+#   follow_up_questions       — optional list of secondary questions the
+#                               same data product should be able to answer.
+#                               Drives column inventory beyond the primary
+#                               question.
+#
+# Aspirational initiatives carry a question even when the data isn't there
+# yet — the question is the user's question regardless of feasibility, and
+# the gap-aware fields document why it cannot be answered today.
+
 # ---------------------------------------------------------------------------
 # Gap-aware schema (introduced April 2026, v1 initiative research)
 # ---------------------------------------------------------------------------
@@ -175,6 +212,14 @@ initiative_taxonomy:
 
   - id: pricing_adequacy_monitoring
     status: grounded
+    business_question: >-
+      Where in my portfolio is sold premium drifting below technical price,
+      and by how much?
+    business_question_asker: pricing_team
+    business_question_cadence: weekly
+    follow_up_questions:
+      - Which underwriters consistently write below modtech?
+      - Which sections show widening adequacy gaps over time?
     # Scoring
     archetype: monitoring
     required_primitives: [pricing_decomposition, rate_change_monitoring]
@@ -197,6 +242,16 @@ initiative_taxonomy:
 
   - id: underwriting_decision_support
     status: grounded
+    business_question: >-
+      For the risk in front of me right now, what does the warehouse
+      already know about comparable layers, this insured's history, and
+      our pricing position?
+    business_question_asker: underwriter
+    business_question_cadence: per_quote
+    follow_up_questions:
+      - How have similar risks performed at renewal?
+      - Where does this layer sit vs comparable rate-on-line benchmarks?
+      - Has this insured triggered any prior claims that affect appetite?
     # Scoring
     archetype: decision_support
     required_primitives: [quote_lifecycle, pricing_decomposition, exposure_structure]
@@ -217,6 +272,15 @@ initiative_taxonomy:
 
   - id: renewal_prioritisation
     status: grounded
+    business_question: >-
+      Of my open renewal queue, which renewals warrant active negotiation
+      versus a light-touch pass?
+    business_question_asker: underwriter
+    business_question_cadence: weekly
+    follow_up_questions:
+      - Which renewals are deteriorating fastest on ELR?
+      - Which renewals are at risk of non-renewal if we hold rate?
+      - Which large renewals expire in the next 30 days?
     # Scoring
     archetype: prioritization
     required_primitives: [renewal_tracking, pricing_decomposition]
@@ -237,6 +301,14 @@ initiative_taxonomy:
 
   - id: risk_appetite_monitoring
     status: grounded
+    business_question: >-
+      Where am I building dangerous concentration — by geography, industry,
+      peril, or product line — relative to my appetite?
+    business_question_asker: exposure_management
+    business_question_cadence: weekly
+    follow_up_questions:
+      - Which segments are growing fastest beyond plan?
+      - Where am I underweight relative to declared appetite?
     # Scoring
     archetype: monitoring
     required_primitives: [exposure_structure, product_line_segmentation]
@@ -257,6 +329,15 @@ initiative_taxonomy:
 
   - id: renewal_pricing_copilot
     status: grounded
+    business_question: >-
+      For this specific renewal, what should I quote and why — given prior
+      experience, comparable benchmarks, and current rate adequacy?
+    business_question_asker: underwriter
+    business_question_cadence: per_renewal
+    follow_up_questions:
+      - What were the headline terms last year?
+      - Where does this renewal sit on rate adequacy vs comparable book?
+      - Are there claims developments I need to factor in?
     # Scoring
     archetype: copilot
     required_primitives: [quote_lifecycle, pricing_decomposition, renewal_tracking]
@@ -280,6 +361,15 @@ initiative_taxonomy:
 
   - id: underwriter_copilot_rag
     status: aspirational
+    business_question: >-
+      What does the warehouse plus historical underwriting commentary
+      already know about this risk, this insured, and similar prior
+      decisions?
+    business_question_asker: underwriter
+    business_question_cadence: per_quote
+    follow_up_questions:
+      - What did we say internally about this insured last year?
+      - Have we declined similar risks recently and why?
     # Scoring
     archetype: copilot
     # NEW: rag_index_over_warehouse — vector index + structured-tool interface
@@ -317,6 +407,14 @@ initiative_taxonomy:
 
   - id: submission_triage
     status: aspirational
+    business_question: >-
+      Of the inbound submissions in my queue, which should I quote first
+      and which should I decline without further work?
+    business_question_asker: underwriter
+    business_question_cadence: continuous
+    follow_up_questions:
+      - Which submissions match our appetite for this section?
+      - Which submissions are missing data we need before pricing?
     # Scoring
     archetype: automation
     # Both primitives are aspirational — `submission_intake` and
@@ -361,6 +459,14 @@ initiative_taxonomy:
 
   - id: technical_price_benchmarking
     status: grounded
+    business_question: >-
+      How does our written rate compare to the technical price across
+      segments, brokers, and underwriters?
+    business_question_asker: pricing_team
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which segments are systematically underpriced?
+      - Are specific brokers placing risks at consistent discounts?
     # Scoring
     archetype: decision_support
     required_primitives: [pricing_decomposition, rate_change_monitoring]
@@ -383,6 +489,14 @@ initiative_taxonomy:
 
   - id: layer_rate_adequacy_monitoring
     status: grounded
+    business_question: >-
+      Which layers in my specialty excess book are written below technical
+      adequacy, and is the gap widening on renewal?
+    business_question_asker: pricing_team
+    business_question_cadence: weekly
+    follow_up_questions:
+      - Are excess layers softening more than primary layers?
+      - Which attachment ranges show the largest adequacy gap?
     # Scoring
     # NEW initiative v1 — driven by the layer_pricing primitive and the
     # *_layer_pricing / *_layers asset families (do_layer_pricing, hx_fi_layer_pricing,
@@ -409,6 +523,15 @@ initiative_taxonomy:
 
   - id: rate_change_attribution_analytics
     status: grounded
+    business_question: >-
+      How much of this renewal's rate change came from deliberate pricing
+      action versus structural changes in exposure, limit, breadth, or
+      claims inflation?
+    business_question_asker: pricing_team
+    business_question_cadence: per_renewal
+    follow_up_questions:
+      - Which renewals show the largest unexplained residual?
+      - Across the portfolio, what is the average split between rate vs structure?
     # Scoring
     # NEW initiative v1 — direct-from-columns analytics product. Warehouse
     # has gross_rarc, net_rarc, breadth_of_cover_change, gross_exposure_change,
@@ -440,6 +563,14 @@ initiative_taxonomy:
 
   - id: claims_experience_analysis
     status: grounded
+    business_question: >-
+      How are claims developing across product lines and underwriting
+      cohorts, and where are loss ratios trending against plan?
+    business_question_asker: actuary
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which sections are deteriorating fastest?
+      - Which YOA cohorts are still moving on incurred?
     # Scoring
     archetype: decision_support
     required_primitives: [claims_experience, pricing_decomposition]
@@ -460,6 +591,14 @@ initiative_taxonomy:
 
   - id: claims_severity_prediction
     status: partial
+    business_question: >-
+      What is the likely ultimate severity of this open claim, and is the
+      current case reserve adequate?
+    business_question_asker: claims_team
+    business_question_cadence: per_claim
+    follow_up_questions:
+      - Which open claims show the highest expected reserve uplift?
+      - Where are case reserves most likely to be inadequate?
     # Scoring
     archetype: prediction
     required_primitives: [claims_experience, claim_outcome_label]
@@ -498,6 +637,14 @@ initiative_taxonomy:
 
   - id: claims_fraud_detection
     status: aspirational
+    business_question: >-
+      Which open claims show patterns consistent with confirmed fraud
+      cases and warrant SIU review?
+    business_question_asker: claims_team
+    business_question_cadence: continuous
+    follow_up_questions:
+      - Which claims share behavioural signals with prior fraud cases?
+      - Which adjusters or brokers show clusters of suspect claims?
     # CURATOR TODO: Part F Q2 — Brief lowered BV 0.75 → 0.70 noting specialty
     # claim volumes may not support ML calibration. Alternative: remove as
     # conceptually wrong for specialty, rather than demote to aspirational.
@@ -536,6 +683,14 @@ initiative_taxonomy:
 
   - id: claims_automation
     status: aspirational
+    business_question: >-
+      For this incoming claim, what is the recommended next action —
+      auto-pay, route to adjuster, or trigger investigation?
+    business_question_asker: claims_team
+    business_question_cadence: per_claim
+    follow_up_questions:
+      - Which claims can be auto-paid within tolerance?
+      - Which claims need escalation today?
     # Scoring
     archetype: automation
     required_primitives: [claims_operational_events]
@@ -572,6 +727,14 @@ initiative_taxonomy:
 
   - id: portfolio_drift_monitoring
     status: grounded
+    business_question: >-
+      Is my portfolio drifting in any way that should trigger an
+      intervention before it lands on the loss ratio?
+    business_question_asker: portfolio_manager
+    business_question_cadence: weekly
+    follow_up_questions:
+      - Which microsegments are softening fastest?
+      - Where is volume growth outpacing rate?
     # Scoring
     archetype: anomaly_detection
     required_primitives: [rate_change_monitoring, exposure_structure, portfolio_rate_monitoring]
@@ -593,6 +756,14 @@ initiative_taxonomy:
 
   - id: product_line_performance_dashboard
     status: grounded
+    business_question: >-
+      Which product lines are performing in line with plan, and which are
+      deteriorating?
+    business_question_asker: product_lead
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Where is the largest gap to plan?
+      - Which lines are growing on the right rate trajectory?
     # Scoring
     archetype: monitoring
     required_primitives: [product_line_segmentation, pricing_decomposition]
@@ -617,6 +788,14 @@ initiative_taxonomy:
 
   - id: cat_exposure_monitoring
     status: aspirational
+    business_question: >-
+      What is my modelled portfolio loss under each Realistic Disaster
+      Scenario, and where am I close to limits?
+    business_question_asker: exposure_management
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which RDS scenario is closest to my retention?
+      - Which accumulations need outward reinsurance attention?
     # Scoring
     archetype: monitoring
     required_primitives: [exposure_structure, cat_model_output]
@@ -653,6 +832,14 @@ initiative_taxonomy:
 
   - id: broker_performance_intelligence
     status: partial
+    business_question: >-
+      Which of my broker relationships produce the most profitable
+      business, and where should I shift channel mix?
+    business_question_asker: distribution_team
+    business_question_cadence: quarterly
+    follow_up_questions:
+      - Which brokers consistently bring underpriced business?
+      - Which brokers have the strongest renewal retention?
     # Scoring
     archetype: recommendation
     required_primitives: [broker_attribution, pricing_decomposition]
@@ -686,6 +873,14 @@ initiative_taxonomy:
 
   - id: delegated_authority_monitoring
     status: aspirational
+    business_question: >-
+      How is each coverholder's portfolio performing against the binding
+      authority terms, and which are drifting?
+    business_question_asker: distribution_team
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which coverholders are running at loss-ratio outliers?
+      - Are any coverholders writing outside agreed appetite?
     # Scoring
     archetype: monitoring
     required_primitives: [broker_attribution, bordereaux_ingestion]
@@ -722,6 +917,14 @@ initiative_taxonomy:
 
   - id: profitability_decomposition_assistant
     status: grounded
+    business_question: >-
+      Where is the profitability gap to plan coming from — pricing,
+      claims, commission, or mix?
+    business_question_asker: actuary
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which segments contribute most to plan variance?
+      - Is the gap structural or driven by individual outliers?
     # Scoring
     archetype: decision_support
     required_primitives: [profitability_decomposition, pricing_decomposition]
@@ -742,6 +945,14 @@ initiative_taxonomy:
 
   - id: subscription_share_performance
     status: grounded
+    business_question: >-
+      How is my net-to-gross result moving as a function of London signed
+      line, order percentage, and our subscription share?
+    business_question_asker: finance
+    business_question_cadence: quarterly
+    follow_up_questions:
+      - Where is Liberty's signed-line suboptimal vs the wider market?
+      - How does London vs non-London panel mix affect net result?
     # Scoring
     # NEW initiative v1 — exploits unused our_share_pct_*, london_order_percentage,
     # london_estimated_signed_line, *_total_our_share_usd views. Explicitly
@@ -777,6 +988,14 @@ initiative_taxonomy:
 
   - id: loss_ratio_forecasting
     status: partial
+    business_question: >-
+      What ultimate loss ratio should we project for each YOA cohort, and
+      how does that compare to plan?
+    business_question_asker: actuary
+    business_question_cadence: quarterly
+    follow_up_questions:
+      - Which cohorts are tracking ahead of plan on incurred?
+      - Where is the ultimate-vs-current gap widest?
     # Scoring
     archetype: prediction
     required_primitives: [claims_experience, profitability_decomposition, claims_development_triangle]
@@ -822,6 +1041,14 @@ initiative_taxonomy:
 
   - id: ibnr_reserving_support
     status: aspirational
+    business_question: >-
+      What IBNR reserve do chain-ladder and Bornhuetter-Ferguson methods
+      suggest for each YOA cohort?
+    business_question_asker: actuary
+    business_question_cadence: quarterly
+    follow_up_questions:
+      - Where do chain-ladder and BF disagree on ultimate?
+      - Which cohorts have the most volatile development pattern?
     # Scoring
     # NEW initiative v1 — fills reserving-domain gap (was absent from catalogue).
     archetype: prediction
@@ -858,6 +1085,14 @@ initiative_taxonomy:
 
   - id: endorsement_mta_monitoring
     status: aspirational
+    business_question: >-
+      How is in-force change activity (MTAs, cancellations, mid-term
+      endorsements) affecting premium development and retention?
+    business_question_asker: operations
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which sections show the most mid-term cancellations?
+      - Which endorsements are materially shifting expected loss costs?
     # Scoring
     # NEW initiative v1 — fills operations-domain gap (was absent).
     archetype: monitoring
@@ -894,6 +1129,14 @@ initiative_taxonomy:
 
   - id: regulatory_reporting_qrt
     status: aspirational
+    business_question: >-
+      What does my Solvency II QRT / Lloyd's market return look like for
+      this period, and is everything reconciled to source?
+    business_question_asker: compliance
+    business_question_cadence: quarterly
+    follow_up_questions:
+      - Which QRT lines have unexplained variance vs prior period?
+      - Where do my warehouse measures fail to reconcile to the return?
     # Scoring
     # NEW initiative v1 — fills compliance-domain gap (was absent).
     archetype: automation
@@ -930,6 +1173,14 @@ initiative_taxonomy:
 
   - id: reinsurance_recovery_tracking
     status: aspirational
+    business_question: >-
+      What outward reinsurance recoveries should I expect against open
+      claims, and how is each treaty performing?
+    business_question_asker: finance
+    business_question_cadence: monthly
+    follow_up_questions:
+      - Which treaties are close to reinstatement?
+      - Where are recoveries lagging vs paid claims?
     # Scoring
     # NEW initiative v1 — fills reinsurance-domain gap (was absent).
     # IMPORTANT: our_share_pct_* are Lloyd's subscription shares, NOT

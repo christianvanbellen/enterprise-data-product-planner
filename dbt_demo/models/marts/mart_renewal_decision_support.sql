@@ -1,49 +1,39 @@
 {{
     config(
         materialized='table',
-        tags=['mart', 'renewal', 'prioritisation', 'underwriting'],
+        tags=['mart', 'canonical', 'renewal'],
     )
 }}
 
 -- ─────────────────────────────────────────────────────────────────────────
--- Initiative: renewal_prioritisation
--- Output:    mart_pack_b.mart_renewal_prioritisation
--- Grain:     one row per (quote_id, layer_id, pas_id) on RENEWAL business
--- Sources:   stg_ll_quote_policy_detail (primary, layer-grain)
---            int_coverage_layer_rollup  (bridge → layer-grain rollup)
---            stg_ll_quote_setup         (header dimension — broker, UW, dates)
---            stg_rate_monitoring        (renewal-only, quote-grain)
+-- Canonical mart: mart_renewal_decision_support
+-- Output:        mart_pack_b.mart_renewal_decision_support
+-- Grain:         one row per (quote_id, layer_id, pas_id) on RENEWAL business
 --
--- Goal: a ranked list that lets an underwriter focus their attention on
--- renewals where pricing or risk indicators warrant active negotiation
--- versus those that can pass on a light touch.
+-- Canonical question
+-- ------------------
+-- For each open renewal, which warrant active negotiation, and what
+-- context does the underwriter need to decide?
 --
--- Priority score (composite, normalised 0–100) blends:
---   • adequacy gap     — how far sold premium is below modtech (negative => higher priority)
---   • elr deterioration — modtech_gg_elr level (high ELR => higher priority)
---   • rate change     — net_rarc level (negative net rarc => higher priority)
---   • premium scale   — log(sold_gnwp) (bigger layers attract more triage attention)
---   • days to renewal — fewer days remaining => higher priority
--- Component weights are demo defaults; production should calibrate against
--- realised outcomes (renewed-and-deteriorated vs renewed-and-improved).
--- ─────────────────────────────────────────────────────────────────────────
+-- Fulfils initiatives (per ontology/mart_plan.yaml)
+-- -------------------------------------------------
+--   renewal_prioritisation         → view_renewal_priority_queue
+--   underwriting_decision_support  → view_underwriting_risk_context
 --
--- ⚠ DETECTED RISKS (vs spec output/spec_log/renewal_prioritisation/current.md)
+-- Sources
+-- -------
+--   stg_ll_quote_policy_detail   (primary, layer-grain)
+--   int_coverage_layer_rollup    (bridge → layer-grain rollup)
+--   stg_ll_quote_setup           (header dimension)
+--   stg_rate_monitoring          (renewal-only, QUOTE grain)
 --
--- R1. Spec lists ll_quote_setup with 0% test coverage. Pack B's _stg_models.yml
---     has since added not_null/unique tests on quote_id and accepted_values
---     on premium_currency / branch — risk mostly mitigated. Original spec
---     warning is stale.
---
--- R2. Spec frames the mart at all-business grain but the *prioritisation*
---     concept only applies to renewals. We filter to (new_renewal = 'Renewal')
---     in the final select; new business is out of scope.
---
--- R3. Spec does not include `inception_date` / days_to_renewal as a priority
---     dimension — but that is the most operationally load-bearing signal
---     for an UW queue ("which renewals expire soonest"). We add it.
---
--- R4. Bridge fan-out resolved via int_coverage_layer_rollup.
+-- Why quote-grain rate (not layer-grain)
+-- --------------------------------------
+-- Priority is a per-quote operational decision: an underwriter prioritises
+-- the *renewal*, not individual layers. The quote-grain rate-monitoring
+-- view carries the premium-weighted aggregation of the layer-grain seed
+-- (see Pack B v2 reconciliation invariant) so the headline rate-change
+-- figure is consistent with the layer-grain mart.
 -- ─────────────────────────────────────────────────────────────────────────
 
 with policy as (
@@ -80,7 +70,7 @@ joined as (
         s.inception_date                       as renewal_inception_date,
         s.expiry_date                          as renewal_expiry_date,
 
-        -- ── Coverage dimensions ───────────────────────────────────────
+        -- ── Coverage / structural dimensions ──────────────────────────
         c.section,
         c.coverage,
         c.exposure_type,
@@ -91,7 +81,7 @@ joined as (
         c.new_renewal,
         c.has_multi_coverage_rollup,
 
-        -- ── Structural measures ───────────────────────────────────────
+        -- ── Layer structural measures ─────────────────────────────────
         c.total_exposure                       as exposure,
         c.total_coverage_limit_amount          as coverage_limit_amount,
         c.total_excess                         as excess,
@@ -105,15 +95,17 @@ joined as (
         p.commission,
         p.london_order_percentage,
         p.modtech_ggwp,
+        p.tech_gg_elr,
         p.modtech_gg_elr,
         p.sold_to_modtech_ratio,
 
-        -- ── Rate-change context (renewal-only) ────────────────────────
+        -- ── Rate-change context (quote-grain, renewal-only) ──────────
         r.gross_rarc,
         r.net_rarc,
         r.claims_inflation,
         r.expiring_inception_date,
-        r.expiring_expiry_date
+        r.expiring_expiry_date,
+        r.expiring_gnwp
 
     from policy p
     inner join coverage c
@@ -122,8 +114,7 @@ joined as (
         and p.pas_id   = c.pas_id
     inner join setup s
         on p.quote_id = s.quote_id
-    -- INNER: renewal-only mart by design.
-    inner join rate r
+    inner join rate r       -- inner: this mart is renewal-only by design
         on p.quote_id = r.quote_id
 ),
 
@@ -131,19 +122,29 @@ with_signals as (
     select
         *,
 
-        -- Days remaining until the renewal incepts. Negative when the
-        -- renewal has already incepted (in-flight, less actionable but
-        -- still surfaced).
+        -- Days from today to the renewal's inception (negative = already incepted)
         datediff('day', current_date, renewal_inception_date)
                                                 as days_to_renewal_inception,
 
-        -- Adequacy gap vs modtech (sold/modtech − 1). Negative is worse.
+        -- Headline adequacy gap; negative => sold below modtech
         case
             when modtech_gnwp is null or modtech_gnwp = 0 then null
             else (sold_gnwp / modtech_gnwp) - 1
         end                                     as adequacy_gap_modtech_pct,
 
-        -- log(sold_gnwp) for scale weighting; fall back to 0 when null/zero.
+        -- Rate on line — premium per unit of layer limit (specialty-excess benchmark)
+        case
+            when coverage_limit_amount is null or coverage_limit_amount = 0 then null
+            else sold_gnwp / coverage_limit_amount
+        end                                     as rate_on_line,
+
+        -- Year-on-year premium change at layer (renewal-only)
+        case
+            when expiring_gnwp is null or expiring_gnwp = 0 then null
+            else (sold_gnwp / expiring_gnwp) - 1
+        end                                     as year_on_year_premium_change_pct,
+
+        -- log(sold_gnwp) for scale weighting in priority score
         case
             when sold_gnwp is null or sold_gnwp <= 0 then 0
             else ln(sold_gnwp)
@@ -158,10 +159,7 @@ scored as (
         *,
 
         -- ── Component scores (each 0..1, higher => more attention) ────
-        --
-        -- Adequacy: convert (sold/modtech − 1) into a 0..1 priority where
-        -- −15% gap or worse maps to 1.0, on-modtech maps to ~0.5, +5% above
-        -- maps to 0.0. Linear inside the band.
+        -- See per-mart docstring; weights are demo defaults.
         greatest(0, least(1,
             case
                 when adequacy_gap_modtech_pct is null then 0.5
@@ -169,7 +167,6 @@ scored as (
             end
         ))                                      as score_adequacy,
 
-        -- Expected-loss-ratio level: 0.40 maps to 0, 0.80 maps to 1.0.
         greatest(0, least(1,
             case
                 when modtech_gg_elr is null then 0.5
@@ -177,7 +174,6 @@ scored as (
             end
         ))                                      as score_elr,
 
-        -- Net rate change: −10% maps to 1.0, +10% maps to 0.0.
         greatest(0, least(1,
             case
                 when net_rarc is null then 0.5
@@ -185,15 +181,12 @@ scored as (
             end
         ))                                      as score_rate_change,
 
-        -- Premium scale: rescale ln(sold_gnwp) into 0..1 across the
-        -- portfolio's observed range (per-build percentile-style banding).
         case
-            when log_sold_gnwp <= 9   then 0.0   -- ~ ln(8 100)
-            when log_sold_gnwp >= 14  then 1.0   -- ~ ln(1.2 m)
+            when log_sold_gnwp <= 9   then 0.0
+            when log_sold_gnwp >= 14  then 1.0
             else (log_sold_gnwp - 9) / 5.0
         end                                     as score_scale,
 
-        -- Time pressure: 0 days => 1.0, 90+ days => 0.0.
         case
             when days_to_renewal_inception is null then 0.0
             when days_to_renewal_inception <= 0    then 1.0
@@ -205,61 +198,9 @@ scored as (
 )
 
 select
-    quote_id,
-    layer_id,
-    pas_id,
+    *,
 
-    policyholder_name,
-    underwriter,
-    broker_primary,
-    carrier_branch,
-    premium_currency,
-
-    quote_date,
-    last_updated_at,
-    renewal_inception_date,
-    renewal_expiry_date,
-    expiring_inception_date,
-    expiring_expiry_date,
-    days_to_renewal_inception,
-
-    section,
-    coverage,
-    exposure_type,
-    limit_type,
-    deductible_type,
-    claims_trigger,
-    policy_coverage_jurisdiction,
-    new_renewal,
-    has_multi_coverage_rollup,
-
-    exposure,
-    coverage_limit_amount,
-    excess,
-    deductible_value,
-
-    tech_gnwp,
-    modtech_gnwp,
-    sold_gnwp,
-    tech_elc,
-    commission,
-    london_order_percentage,
-    modtech_ggwp,
-    modtech_gg_elr,
-    sold_to_modtech_ratio,
-
-    gross_rarc,
-    net_rarc,
-    claims_inflation,
-
-    adequacy_gap_modtech_pct,
-    score_adequacy,
-    score_elr,
-    score_rate_change,
-    score_scale,
-    score_time_pressure,
-
-    -- Composite priority score, 0..100. Weights are documented above.
+    -- Composite priority score, 0..100 (weights: 0.30 / 0.25 / 0.20 / 0.15 / 0.10)
     round(100 * (
             0.30 * score_adequacy
           + 0.25 * score_elr
@@ -268,7 +209,6 @@ select
           + 0.10 * score_time_pressure
     ), 2)                                       as priority_score,
 
-    -- Discrete priority band for triage queues.
     case
         when (
               0.30 * score_adequacy

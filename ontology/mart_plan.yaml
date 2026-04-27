@@ -1,0 +1,290 @@
+# mart_plan.yaml — compressed mart specification (April 2026)
+#
+# Sits between initiative_research.yaml (exhaustive catalogue) and the
+# generated dbt SQL. Each mart serves a *canonical* business question and
+# fulfils one or more initiatives whose questions can be answered from a
+# single grain.
+#
+# Why this exists
+# ---------------
+# The initiative catalogue is intentionally exhaustive — every literature-
+# named capability earns its own entry, even when several capabilities are
+# different framings of the same underlying analytical question. This is
+# correct for *discovery*: a CDO asking "what could we be doing" should
+# see the full backlog. It is wrong for *delivery*: a data engineer
+# asking "what should we build" needs the minimum mart set that satisfies
+# the maximum number of questions.
+#
+# This file is the delivery view. One mart can fulfil N initiatives;
+# each fulfilment is annotated with the BI surface (`view_name`) that
+# answers that initiative's question.
+#
+# Field schema
+# ------------
+#   id                    — mart identifier; matches the dbt model name.
+#   canonical_question    — the broadest version of the cluster's questions.
+#   primary_grain         — the row grain of the mart's output table.
+#   primary_asker         — the role most associated with the mart.
+#   primary_cadence       — refresh cadence supporting the canonical question.
+#   fulfils_initiatives   — list, each with:
+#       initiative_id     — id from initiative_research.yaml
+#       view_name         — logical BI cut / dashboard tab that answers
+#                           that initiative's specific question
+#       reason            — short note on why this initiative collapses
+#                           into the canonical mart
+#   capabilities          — optional list of cross-cutting features the
+#                           mart must support (segmentation columns,
+#                           drill-through paths, derived KPIs).
+#   status                — built | proposed | aspirational
+#
+# How this gets generated
+# -----------------------
+# Today (April 2026): hand-curated. Curator reads
+# initiative_research.yaml, clusters by question similarity + grain
+# compatibility + primitive overlap, writes the canonical question.
+#
+# Next iteration: a planner stage that drafts this file automatically by
+# (a) embedding each initiative's business_question, (b) clustering by
+# cosine similarity with a high threshold to avoid over-merging,
+# (c) checking primitive + grain compatibility, (d) emitting drafts for
+# human ratification. Compression is a *delivery* decision, not a
+# *discovery* decision — the catalogue stays exhaustive.
+
+marts:
+
+  # =========================================================================
+  # PRICING — single mart serving the whole pricing-adequacy / attribution cluster
+  # =========================================================================
+  - id: pricing_adequacy_mart
+    canonical_question: >-
+      Where is sold premium drifting from technical price across my book,
+      and what's driving the gap?
+    primary_grain: [quote_id, layer_id, pas_id]
+    primary_asker: pricing_team
+    primary_cadence: weekly
+    status: built
+    canonical_model: dbt_demo/models/marts/mart_pricing_adequacy.sql
+    fulfils_initiatives:
+      - initiative_id: pricing_adequacy_monitoring
+        view_name: view_portfolio_drift_heatmap
+        physical_model: dbt_demo/models/marts/views/view_portfolio_drift_heatmap.sql
+        reason: >-
+          Headline adequacy gap (sold/modtech) and ELR drift, segmented
+          by section and underwriter. The mart's adequacy_band column is
+          the dashboard's primary filter.
+      - initiative_id: layer_rate_adequacy_monitoring
+        view_name: view_layer_attachment_ladder
+        physical_model: dbt_demo/models/marts/views/view_layer_attachment_ladder.sql
+        reason: >-
+          Same mart, layer-economics framing — rate_on_line,
+          layer_attachment_ratio, technical_rate_on_line columns surface
+          the specialty-excess view of the adequacy gap.
+      - initiative_id: technical_price_benchmarking
+        view_name: view_segment_benchmark
+        physical_model: dbt_demo/models/marts/views/view_segment_benchmark.sql
+        reason: >-
+          Same mart, segment-pivot framing — adequacy_gap_modtech_pct
+          rolled up by section / broker / underwriter is the
+          benchmarking deliverable.
+      - initiative_id: rate_change_attribution_analytics
+        view_name: view_rate_change_waterfall
+        physical_model: dbt_demo/models/marts/views/view_rate_change_waterfall.sql
+        reason: >-
+          Layer-grain rate-change decomposition served by the same fact
+          spine; the attribution waterfall reads the seven driver
+          columns surfaced via stg_rate_monitoring_layer. View filters
+          to renewals only (gross_rarc not null).
+    capabilities:
+      - segmentation: [section, coverage, broker_primary, underwriter, carrier_branch, exposure_type]
+      - derived_kpis: [adequacy_gap_modtech_pct, adequacy_gap_tech_pct, rate_on_line, layer_attachment_ratio, gross_rarc, named_drivers]
+      - drill_through: layer_id → coverage_id (via int_coverage_layer_rollup audit flag)
+
+  # =========================================================================
+  # RENEWAL DECISION SUPPORT — one mart for the renewal underwriter workflow
+  # =========================================================================
+  - id: renewal_decision_support_mart
+    canonical_question: >-
+      For each open renewal, which warrant active negotiation, and what
+      context does the underwriter need to decide?
+    primary_grain: [quote_id, layer_id, pas_id]
+    primary_asker: underwriter
+    primary_cadence: weekly
+    status: built
+    canonical_model: dbt_demo/models/marts/mart_renewal_decision_support.sql
+    fulfils_initiatives:
+      - initiative_id: renewal_prioritisation
+        view_name: view_renewal_priority_queue
+        physical_model: dbt_demo/models/marts/views/view_renewal_priority_queue.sql
+        reason: >-
+          Composite priority_score + priority_band (high / medium / low)
+          is the headline ranking that drives the renewal queue.
+      - initiative_id: underwriting_decision_support
+        view_name: view_underwriting_risk_context
+        physical_model: dbt_demo/models/marts/views/view_underwriting_risk_context.sql
+        reason: >-
+          Same mart, single-row view per layer — pulls pricing,
+          structural, and prior-period context into a "decision card"
+          format. Same primitive base; differs only in BI presentation.
+    capabilities:
+      - segmentation: [section, broker_primary, underwriter]
+      - derived_kpis: [priority_score, days_to_renewal_inception, adequacy_gap_modtech_pct]
+      - drill_through: priority_band → individual layer details
+
+  # =========================================================================
+  # RENEWAL COPILOT — kept distinct (ai_agent archetype, different surface)
+  # =========================================================================
+  - id: renewal_pricing_copilot
+    canonical_question: >-
+      For this specific renewal, what should I quote and why?
+    primary_grain: [quote_id, layer_id, pas_id]
+    primary_asker: underwriter
+    primary_cadence: per_renewal
+    status: proposed
+    fulfils_initiatives:
+      - initiative_id: renewal_pricing_copilot
+        view_name: copilot_chat
+        reason: >-
+          LLM agent grounded on renewal_decision_support_mart +
+          pricing_adequacy_mart. Distinct from the priority queue
+          because the surface is conversational, not tabular —
+          maintained as a separate mart so the agent contract is
+          explicit.
+    capabilities:
+      - tool_calls: [lookup_priority, lookup_adequacy, lookup_history]
+      - guardrails: [no_pii, no_speculative_pricing]
+
+  # =========================================================================
+  # PORTFOLIO HEALTH — drift + product-line performance compress into one
+  # =========================================================================
+  - id: portfolio_health_mart
+    canonical_question: >-
+      Is my portfolio performing to plan, and where is it drifting?
+    primary_grain: [section, period_month]
+    primary_asker: portfolio_manager
+    primary_cadence: weekly
+    status: proposed
+    fulfils_initiatives:
+      - initiative_id: portfolio_drift_monitoring
+        view_name: drift_alert_panel
+        reason: >-
+          Headline drift signals (rate change vs claims inflation,
+          exposure growth vs rate) at section / microsegment grain.
+      - initiative_id: product_line_performance_dashboard
+        view_name: product_line_scorecard
+        reason: >-
+          Same mart, plan-vs-actual framing. Drift signals + plan
+          variance share the same aggregation; one BI view per consumer.
+    capabilities:
+      - segmentation: [section, coverage, carrier_branch, period_month]
+      - derived_kpis: [rate_minus_inflation_gap, exposure_growth_pct, plan_variance_pct]
+
+  # =========================================================================
+  # RISK APPETITE — genuinely standalone (concentration / accumulation focus)
+  # =========================================================================
+  - id: risk_appetite_mart
+    canonical_question: >-
+      Where am I building dangerous concentration relative to my appetite?
+    primary_grain: [section, jurisdiction, exposure_type]
+    primary_asker: exposure_management
+    primary_cadence: weekly
+    status: proposed
+    fulfils_initiatives:
+      - initiative_id: risk_appetite_monitoring
+        view_name: appetite_heatmap
+        reason: >-
+          Genuinely distinct from portfolio_health_mart because the
+          aggregation is by concentration dimension (geo / industry /
+          peril), not by performance dimension (rate / loss / plan).
+    capabilities:
+      - segmentation: [policy_coverage_jurisdiction, exposure_type, section]
+      - derived_kpis: [exposure_share_pct, appetite_utilisation_pct]
+
+  # =========================================================================
+  # PROFITABILITY — decomposition + subscription share compress into one
+  # =========================================================================
+  - id: profitability_mart
+    canonical_question: >-
+      Where is the profitability gap to plan coming from, and how is
+      subscription-share economics affecting the net result?
+    primary_grain: [section, period_quarter]
+    primary_asker: actuary
+    primary_cadence: monthly
+    status: proposed
+    fulfils_initiatives:
+      - initiative_id: profitability_decomposition_assistant
+        view_name: profitability_waterfall
+        reason: >-
+          Plan-variance decomposition into pricing / claims / commission /
+          mix drivers — the canonical actuarial profitability view.
+      - initiative_id: subscription_share_performance
+        view_name: subscription_share_dashboard
+        reason: >-
+          Same mart, with London-market subscription columns
+          (our_share_pct_*, london_*) driving the gross-to-net cut. The
+          underlying decomposition is shared; the differentiator is
+          which columns the BI view foregrounds.
+    capabilities:
+      - segmentation: [section, broker_primary, carrier_branch]
+      - derived_kpis: [plan_variance_pct, gross_to_net_ratio, london_share_pct]
+
+  # =========================================================================
+  # CLAIMS EXPERIENCE — standalone (only ready_now claims initiative)
+  # =========================================================================
+  - id: claims_experience_mart
+    canonical_question: >-
+      How are claims developing across cohorts, and where are loss ratios
+      trending against plan?
+    primary_grain: [yoa_cohort, section, evaluation_month]
+    primary_asker: actuary
+    primary_cadence: monthly
+    status: proposed
+    fulfils_initiatives:
+      - initiative_id: claims_experience_analysis
+        view_name: cohort_development_view
+        reason: >-
+          Single-initiative mart — claims domain has no other ready_now
+          peers in the catalogue. Distinct claims-domain mart preserved
+          for separability.
+    capabilities:
+      - segmentation: [section, yoa_cohort]
+      - derived_kpis: [incurred_loss_ratio, paid_loss_ratio, development_factor]
+
+# =========================================================================
+# Initiatives NOT in this plan (aspirational / partial — gap-blocked)
+# =========================================================================
+# These initiatives carry a defined business_question + asker + cadence in
+# initiative_research.yaml but cannot be fulfilled by a Pack B-shaped
+# warehouse today. Listed here so the audit trail is complete — when the
+# blocking signal lands, each of these earns a mart entry above.
+#
+#   underwriter_copilot_rag       — needs RAG infra over warehouse + UW comments
+#   submission_triage             — needs pre-bind submission ingestion
+#   claims_severity_prediction    — needs closed-claim outcome labels
+#   claims_fraud_detection        — needs fraud labels + claim event timeline
+#   claims_automation             — needs claims operational event stream
+#   cat_exposure_monitoring       — needs CAT model output (RMS/AIR/Verisk)
+#   broker_performance_intelligence (partial) — needs broker_code identifier
+#   delegated_authority_monitoring — needs bordereaux ingestion
+#   loss_ratio_forecasting (partial) — needs claims development triangles
+#   ibnr_reserving_support        — needs YOA cohort time-series snapshots
+#   endorsement_mta_monitoring    — needs endorsement event stream
+#   regulatory_reporting_qrt      — needs SII / Lloyd's regulatory mapping
+#   reinsurance_recovery_tracking — needs outward RI programme data
+
+# =========================================================================
+# Compression summary
+# =========================================================================
+# 13 ready_now initiatives → 7 marts:
+#
+#   pricing_adequacy_mart            ← 4 initiatives (pricing/rate adequacy + attribution)
+#   renewal_decision_support_mart    ← 2 initiatives (prioritisation + decision support)
+#   renewal_pricing_copilot          ← 1 initiative (kept distinct: ai_agent archetype)
+#   portfolio_health_mart            ← 2 initiatives (drift + product line)
+#   risk_appetite_mart               ← 1 initiative (concentration; genuinely distinct)
+#   profitability_mart               ← 2 initiatives (decomposition + subscription share)
+#   claims_experience_mart           ← 1 initiative (no peers ready_now)
+#
+# Compression ratio 13:7 ≈ 1.86:1. The catalogue retains its discovery
+# value (every literature-named capability is named); the delivery plan
+# halves the maintenance burden by collapsing duplicative framings into
+# canonical marts with multiple BI views.
