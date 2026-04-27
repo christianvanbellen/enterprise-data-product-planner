@@ -134,12 +134,56 @@ seeds:
         policy_coverage_jurisdiction:      varchar
         primary_coverage:                  boolean
 
+  - name: rate_monitoring
+    description: >
+      Renewal-only risk-adjusted rate-change measures at (quote_id, layer_id)
+      grain. Same column shape as rate_monitoring_total_our_share_usd plus a
+      layer_id key. Each layer in a renewing programme carries independently
+      drawn rate-change components (gross_rarc, claims_inflation, breadth,
+      etc.), so primary vs excess layers can move differently.
+
+      Reconciliation invariant: rate_monitoring_total_our_share_usd is
+      derived from this seed by premium-weighted aggregation (weight =
+      tech_gnwp_full per layer). Summing the layer-grain rows back up by
+      that weighting reproduces the quote-grain seed exactly.
+    config:
+      column_types:
+        quote_id:                          varchar
+        layer_id:                          varchar
+        _pdm_last_update_timestamp:        timestamp_ntz
+        expiring_inception_date:           date
+        expiring_expiry_date:              date
+        expiring_exposure:                 number(38, 2)
+        expiring_limit:                    number(38, 2)
+        expiring_excess:                   number(38, 2)
+        expiring_deductible:               number(38, 2)
+        expiring_our_share_pct:            number(38, 4)
+        expiring_commission_percentage:    number(38, 4)
+        expiring_ggwp:                     number(38, 2)
+        expiring_gnwp:                     number(38, 2)
+        expiring_modtech_gnwp:             number(38, 2)
+        expiring_tech_gnwp:                number(38, 2)
+        expiring_as_if_ggwp:               number(38, 2)
+        gross_rarc:                        number(38, 6)
+        net_rarc:                          number(38, 6)
+        claims_inflation:                  number(38, 6)
+        breadth_of_cover_change:           number(38, 6)
+        gross_exposure_change:             number(38, 6)
+        gross_limits_and_excess_change:    number(38, 6)
+        policy_term_change:                number(38, 6)
+        other_changes:                     number(38, 6)
+        our_share_pct_london:              number(38, 4)
+        our_share_pct_non_london:          number(38, 4)
+
   - name: rate_monitoring_total_our_share_usd
     description: >
       Renewal-only risk-adjusted rate-change measures at quote_id grain.
-      Compares current quote economics against the expiring policy
-      (inception − 365d). gross_rarc / net_rarc decompose into
-      claims_inflation + breadth_of_cover_change + policy_term_change.
+      Built by premium-weighted aggregation of the layer-grain
+      `rate_monitoring` seed (weight = tech_gnwp_full per layer); the two
+      seeds reconcile by construction. Compares current quote economics
+      against the expiring policy (inception − 365d). gross_rarc / net_rarc
+      decompose into claims_inflation + breadth_of_cover_change +
+      policy_term_change + other_changes.
     config:
       column_types:
         quote_id:                          varchar

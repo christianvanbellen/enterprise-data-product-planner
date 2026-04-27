@@ -39,6 +39,9 @@ models:
     staging:
       +materialized: view
       +schema: stg_pack_b
+    intermediate:
+      +materialized: ephemeral
+      +schema: int_pack_b
     marts:
       +materialized: table
       +schema: mart_pack_b

@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-"""Generate internally-consistent mock data for Pack B (5 assets, 10 ready_now demos).
+"""Generate internally-consistent mock data for Pack B (6 assets, 10 ready_now demos).
 
-Pack B unlocks 10/13 ready_now initiatives by mocking these 5 source tables
+Pack B unlocks 10/13 ready_now initiatives by mocking these 6 source tables
 with shared business keys and domain-plausible measure relationships:
 
   ll_quote_policy_detail               — pricing decomposition (Liberty share, USD)
   ll_quote_coverage_detail             — coverage / exposure / limit / deductible
   ll_quote_setup                       — quote header dimensions (broker, UW, dates)
-  rate_monitoring_total_our_share_usd  — risk-adjusted rate change (renewal-only)
+  rate_monitoring                      — risk-adjusted rate change at LAYER grain (renewal-only)
+  rate_monitoring_total_our_share_usd  — quote-grain rate-change roll-up (renewal-only)
   quote_policy_detail                  — full-share twin of ll_quote_policy_detail
 
 Generation strategy:
@@ -15,7 +16,7 @@ Generation strategy:
      section, currency, dates).
   2. For each quote, generate 1-3 layers; for each layer, 1-2 coverages.
      This produces ~500 layer rows and ~750 coverage rows, with tuples that
-     join cleanly across the 4 layer/coverage-grain assets.
+     join cleanly across the 5 layer/coverage-grain assets.
   3. Generate measures with deliberate insurance-domain relationships:
        tech_gnwp >= modtech_gnwp >= sold_gnwp  (typical softening market)
        commission ~ 10-25% of sold_gnwp
@@ -24,6 +25,13 @@ Generation strategy:
   4. The full-share twin (quote_policy_detail) carries the same key tuples and
      scales measures up by 1/our_share_pct (so ll_* sums to a fraction of the
      full-share row's measures, as Liberty's signed-line economics imply).
+  5. Rate monitoring is generated layer-grain first (one row per renewing
+     layer, with independent rate-change components per layer). The
+     quote-grain `rate_monitoring_total_our_share_usd` seed is then derived
+     by **premium-weighted aggregation** of the layer-grain rows, weighted by
+     each layer's `tech_gnwp_full`. This makes the two seeds reconcile by
+     construction: a consumer summing weighted layer rates back up to quote
+     grain will exactly match the quote-grain seed.
 
 Output: output/mock_data/pack_b/<asset_name>.csv
 
@@ -475,8 +483,8 @@ def emit_ll_quote_coverage_detail(coverages, quote_by_id):
     return rows
 
 
-RATE_MONITORING_COLS = [
-    "quote_id", "_pdm_last_update_timestamp",
+RATE_MONITORING_LAYER_COLS = [
+    "quote_id", "layer_id", "_pdm_last_update_timestamp",
     "expiring_inception_date", "expiring_expiry_date",
     "expiring_exposure", "expiring_limit", "expiring_excess", "expiring_deductible",
     "expiring_our_share_pct", "expiring_commission_percentage",
@@ -488,72 +496,172 @@ RATE_MONITORING_COLS = [
     "our_share_pct_london", "our_share_pct_non_london",
 ]
 
-def emit_rate_monitoring(quote_dim, layers_by_quote, coverages_by_layer):
-    """Renewal-only: one row per quote where new_renewal=Renewal, summarising
-    risk-adjusted rate change vs the expiring period (inception - 365d)."""
+# Quote-grain seed inherits the same column set minus layer_id; ordering kept
+# aligned with the previous seed contract for downstream stability.
+RATE_MONITORING_COLS = [c for c in RATE_MONITORING_LAYER_COLS if c != "layer_id"]
+
+
+def build_rate_monitoring_layer(quote_dim, layers_by_quote, coverages_by_layer):
+    """Build the layer-grain rate-monitoring rows.
+
+    One row per renewing (quote_id, layer_id). Each layer draws its own
+    rate-change components independently so primary vs excess layers can
+    move differently — which is the realistic invariant in a multi-layer
+    specialty programme. Per-quote attributes (expiring inception/expiry,
+    expiring_our_share_pct, london splits) are denormalised onto every
+    layer row, mirroring the convention used in `ll_quote_policy_detail`.
+
+    Returned in deterministic (quote_id, layer_index) order so subsequent
+    aggregation produces a stable output.
+    """
     rows = []
     for q in quote_dim:
         if not q["is_renewal"]:
             continue
-        # Aggregate full-share measures across layers for the expiring view
         layers = layers_by_quote.get(q["quote_id"], [])
-        if not layers: continue
-        exp_tech_gnwp = sum(L["tech_gnwp_full"] for L in layers) * random.uniform(0.85, 1.10)
-        exp_modtech_gnwp = sum(L["modtech_gnwp_full"] for L in layers) * random.uniform(0.85, 1.10)
-        exp_gnwp = sum(L["sold_gnwp_full"] for L in layers) * random.uniform(0.85, 1.10)
-        exp_ggwp = exp_gnwp / (1 - 0.10)
+        if not layers:
+            continue
+
+        # Per-quote denormalised attributes.
+        exp_inception = q["inception_date"] - timedelta(days=365)
+        exp_expiry    = q["expiry_date"]    - timedelta(days=365)
         commission_pct_exp = random.uniform(0.10, 0.25)
 
-        # Aggregate exposure/limit across coverages on this quote's layers
-        cov_rows = []
-        for L in layers:
-            cov_rows.extend(coverages_by_layer.get(L["layer_id"], []))
-        if cov_rows:
-            exp_exposure = sum(c["exposure"] for c in cov_rows) * random.uniform(0.85, 1.10)
-            exp_limit    = sum(c["limit"]    for c in cov_rows) * random.uniform(0.85, 1.10)
-            exp_excess   = sum(c["excess"]   for c in cov_rows) / max(len(cov_rows), 1) * random.uniform(0.85, 1.10)
-            exp_deductible = sum(c["deductible_value"] for c in cov_rows) / max(len(cov_rows), 1) * random.uniform(0.85, 1.10)
-        else:
-            exp_exposure = exp_limit = exp_excess = exp_deductible = 0
+        for L in sorted(layers, key=lambda L: L["layer_index"]):
+            cov_rows = coverages_by_layer.get(L["layer_id"], [])
 
-        # Rate change measures — softening market bias, but with spread
-        # gross_rarc roughly Beta(2, 3) shifted to [-0.15, +0.15], median ~ -0.02
-        gross_rarc = random.triangular(-0.15, 0.15, -0.02)
-        # net_rarc = gross_rarc minus claims inflation minus breadth of cover change
-        claims_inflation = random.uniform(0.02, 0.08)
-        breadth = random.uniform(-0.05, 0.05)
-        net_rarc = gross_rarc - claims_inflation - breadth + random.uniform(-0.01, 0.01)
+            # Layer expiring premium measures — layer's full-share figures
+            # nudged by an independent YoY factor. Same convention as the
+            # historical quote-grain emitter, applied per-layer.
+            yoy_factor = random.uniform(0.85, 1.10)
+            exp_tech_gnwp    = L["tech_gnwp_full"]    * yoy_factor
+            exp_modtech_gnwp = L["modtech_gnwp_full"] * yoy_factor
+            exp_gnwp         = L["sold_gnwp_full"]    * yoy_factor
+            exp_ggwp         = exp_gnwp / (1 - 0.10)
 
-        # Expiring inception/expiry = current minus a year
-        exp_inception = q["inception_date"] - timedelta(days=365)
-        exp_expiry = q["expiry_date"] - timedelta(days=365)
+            # Layer expiring structural measures from its own coverages.
+            if cov_rows:
+                exp_exposure   = sum(c["exposure"]         for c in cov_rows) * random.uniform(0.85, 1.10)
+                exp_limit      = sum(c["limit"]            for c in cov_rows) * random.uniform(0.85, 1.10)
+                exp_excess     = (sum(c["excess"]          for c in cov_rows) / len(cov_rows)) * random.uniform(0.85, 1.10)
+                exp_deductible = (sum(c["deductible_value"] for c in cov_rows) / len(cov_rows)) * random.uniform(0.85, 1.10)
+            else:
+                exp_exposure = exp_limit = exp_excess = exp_deductible = 0.0
+
+            # Independent layer-level rate-change components.
+            gross_rarc       = random.triangular(-0.15, 0.15, -0.02)
+            claims_inflation = random.uniform(0.02, 0.08)
+            breadth          = random.uniform(-0.05, 0.05)
+            exposure_change  = random.uniform(-0.10, 0.15)
+            limits_change    = random.uniform(-0.05, 0.10)
+            term_change      = random.uniform(-0.05, 0.05)
+            other_changes    = random.uniform(-0.02, 0.02)
+            net_rarc         = gross_rarc - claims_inflation - breadth + random.uniform(-0.01, 0.01)
+
+            rows.append({
+                "quote_id":                  q["quote_id"],
+                "layer_id":                  L["layer_id"],
+                "_pdm_last_update_timestamp": PDM_TS,
+                "expiring_inception_date":   _date_iso(exp_inception),
+                "expiring_expiry_date":      _date_iso(exp_expiry),
+                "expiring_exposure":         _round(exp_exposure),
+                "expiring_limit":            _round(exp_limit),
+                "expiring_excess":           _round(exp_excess),
+                "expiring_deductible":       _round(exp_deductible),
+                "expiring_our_share_pct":    q["our_share_pct"],
+                "expiring_commission_percentage": _round(commission_pct_exp, 4),
+                "expiring_ggwp":             _round(exp_ggwp),
+                "expiring_gnwp":             _round(exp_gnwp),
+                "expiring_modtech_gnwp":     _round(exp_modtech_gnwp),
+                "expiring_tech_gnwp":        _round(exp_tech_gnwp),
+                "expiring_as_if_ggwp":       _round(exp_ggwp * random.uniform(0.95, 1.05)),
+                "gross_rarc":                _round(gross_rarc, 6),
+                "net_rarc":                  _round(net_rarc, 6),
+                "claims_inflation":          _round(claims_inflation, 6),
+                "breadth_of_cover_change":   _round(breadth, 6),
+                "gross_exposure_change":     _round(exposure_change, 6),
+                "gross_limits_and_excess_change": _round(limits_change, 6),
+                "policy_term_change":        _round(term_change, 6),
+                "other_changes":             _round(other_changes, 6),
+                "our_share_pct_london":      q["our_share_pct_london"],
+                "our_share_pct_non_london":  q["our_share_pct_non_london"],
+            })
+    return rows
+
+
+def emit_rate_monitoring_layer(layer_rate_rows):
+    _write_csv(OUT_DIR / "rate_monitoring.csv", RATE_MONITORING_LAYER_COLS, layer_rate_rows)
+    return layer_rate_rows
+
+
+def emit_rate_monitoring_quote(layer_rate_rows, layer_by_id):
+    """Aggregate the layer-grain rate rows up to quote grain.
+
+    Reconciliation invariant
+    ------------------------
+    The quote-grain figures are produced *exclusively* by aggregating the
+    layer-grain rows. A consumer who premium-weights the layer rows back up
+    will exactly match the quote-grain seed.
+
+      • Premium measures (expiring_*_gnwp / _ggwp / _as_if_ggwp / _exposure /
+        _limit) → SUM across layers.
+      • Rate-change components (gross_rarc, net_rarc, claims_inflation, the
+        five drivers) → premium-weighted average using the layer's
+        `tech_gnwp_full` as the weight (so a heavily-priced primary layer
+        dominates the quote-level rarc).
+      • Per-layer averages (expiring_excess, expiring_deductible) → simple
+        mean across layers, matching the historical generator's convention.
+      • Per-quote attributes (expiring inception/expiry, share %, london
+        split, commission_pct) → carried from the first layer, since they
+        are denormalised identical values.
+    """
+    # Group layer rows by quote_id while preserving insertion order.
+    by_quote: dict[str, list[dict]] = {}
+    for r in layer_rate_rows:
+        by_quote.setdefault(r["quote_id"], []).append(r)
+
+    def w_avg(records, weights, field):
+        total_w = sum(weights) or 1.0
+        return sum(rec[field] * w for rec, w in zip(records, weights)) / total_w
+
+    rows = []
+    for quote_id, layer_rows in by_quote.items():
+        weights = [layer_by_id[r["layer_id"]]["tech_gnwp_full"] for r in layer_rows]
+        head = layer_rows[0]
+        n_layers = len(layer_rows)
 
         rows.append({
-            "quote_id":                  q["quote_id"],
+            "quote_id":                  quote_id,
             "_pdm_last_update_timestamp": PDM_TS,
-            "expiring_inception_date":   _date_iso(exp_inception),
-            "expiring_expiry_date":      _date_iso(exp_expiry),
-            "expiring_exposure":         _round(exp_exposure),
-            "expiring_limit":            _round(exp_limit),
-            "expiring_excess":           _round(exp_excess),
-            "expiring_deductible":       _round(exp_deductible),
-            "expiring_our_share_pct":    q["our_share_pct"],
-            "expiring_commission_percentage": _round(commission_pct_exp, 4),
-            "expiring_ggwp":             _round(exp_ggwp),
-            "expiring_gnwp":             _round(exp_gnwp),
-            "expiring_modtech_gnwp":     _round(exp_modtech_gnwp),
-            "expiring_tech_gnwp":        _round(exp_tech_gnwp),
-            "expiring_as_if_ggwp":       _round(exp_ggwp * random.uniform(0.95, 1.05)),
-            "gross_rarc":                _round(gross_rarc, 6),
-            "net_rarc":                  _round(net_rarc, 6),
-            "claims_inflation":          _round(claims_inflation, 6),
-            "breadth_of_cover_change":   _round(breadth, 6),
-            "gross_exposure_change":     _round(random.uniform(-0.10, 0.15), 6),
-            "gross_limits_and_excess_change": _round(random.uniform(-0.05, 0.10), 6),
-            "policy_term_change":        _round(random.uniform(-0.05, 0.05), 6),
-            "other_changes":             _round(random.uniform(-0.02, 0.02), 6),
-            "our_share_pct_london":      q["our_share_pct_london"],
-            "our_share_pct_non_london":  q["our_share_pct_non_london"],
+            "expiring_inception_date":   head["expiring_inception_date"],
+            "expiring_expiry_date":      head["expiring_expiry_date"],
+            # Sums across layers for additive structural measures
+            "expiring_exposure":         _round(sum(r["expiring_exposure"] for r in layer_rows)),
+            "expiring_limit":            _round(sum(r["expiring_limit"]    for r in layer_rows)),
+            # Means for non-additive structural measures
+            "expiring_excess":           _round(sum(r["expiring_excess"]      for r in layer_rows) / n_layers),
+            "expiring_deductible":       _round(sum(r["expiring_deductible"]  for r in layer_rows) / n_layers),
+            # Per-quote denormalised attributes
+            "expiring_our_share_pct":    head["expiring_our_share_pct"],
+            "expiring_commission_percentage": head["expiring_commission_percentage"],
+            # Sums across layers for premium measures
+            "expiring_ggwp":             _round(sum(r["expiring_ggwp"]         for r in layer_rows)),
+            "expiring_gnwp":             _round(sum(r["expiring_gnwp"]         for r in layer_rows)),
+            "expiring_modtech_gnwp":     _round(sum(r["expiring_modtech_gnwp"] for r in layer_rows)),
+            "expiring_tech_gnwp":        _round(sum(r["expiring_tech_gnwp"]    for r in layer_rows)),
+            "expiring_as_if_ggwp":       _round(sum(r["expiring_as_if_ggwp"]   for r in layer_rows)),
+            # Premium-weighted averages for rate-change components
+            "gross_rarc":                _round(w_avg(layer_rows, weights, "gross_rarc"),       6),
+            "net_rarc":                  _round(w_avg(layer_rows, weights, "net_rarc"),         6),
+            "claims_inflation":          _round(w_avg(layer_rows, weights, "claims_inflation"), 6),
+            "breadth_of_cover_change":   _round(w_avg(layer_rows, weights, "breadth_of_cover_change"), 6),
+            "gross_exposure_change":     _round(w_avg(layer_rows, weights, "gross_exposure_change"),   6),
+            "gross_limits_and_excess_change": _round(w_avg(layer_rows, weights, "gross_limits_and_excess_change"), 6),
+            "policy_term_change":        _round(w_avg(layer_rows, weights, "policy_term_change"), 6),
+            "other_changes":             _round(w_avg(layer_rows, weights, "other_changes"),     6),
+            # Per-quote denormalised
+            "our_share_pct_london":      head["our_share_pct_london"],
+            "our_share_pct_non_london":  head["our_share_pct_non_london"],
         })
     _write_csv(OUT_DIR / "rate_monitoring_total_our_share_usd.csv", RATE_MONITORING_COLS, rows)
     return rows
@@ -568,12 +676,13 @@ def main() -> None:
     quote_dim = build_quote_dim()
     quote_by_id = {q["quote_id"]: q for q in quote_dim}
     layers = build_layer_dim(quote_dim)
+    layer_by_id = {L["layer_id"]: L for L in layers}
     coverages = build_coverage_dim(layers, quote_by_id)
 
-    layers_by_quote = {}
+    layers_by_quote: dict[str, list[dict]] = {}
     for L in layers:
         layers_by_quote.setdefault(L["quote_id"], []).append(L)
-    coverages_by_layer = {}
+    coverages_by_layer: dict[str, list[dict]] = {}
     for c in coverages:
         coverages_by_layer.setdefault(c["layer_id"], []).append(c)
 
@@ -581,13 +690,19 @@ def main() -> None:
     ll_pol_rows   = emit_ll_quote_policy_detail(layers, quote_by_id)
     full_pol_rows = emit_quote_policy_detail(layers, quote_by_id)
     ll_cov_rows   = emit_ll_quote_coverage_detail(coverages, quote_by_id)
-    rm_rows       = emit_rate_monitoring(quote_dim, layers_by_quote, coverages_by_layer)
+
+    # Layer-grain first; quote-grain seed is derived from it by premium-
+    # weighted aggregation, so the two reconcile by construction.
+    rm_layer_rows = build_rate_monitoring_layer(quote_dim, layers_by_quote, coverages_by_layer)
+    emit_rate_monitoring_layer(rm_layer_rows)
+    rm_quote_rows = emit_rate_monitoring_quote(rm_layer_rows, layer_by_id)
 
     print(f"  ll_quote_setup.csv                       {len(setup_rows):5d} rows")
     print(f"  ll_quote_policy_detail.csv               {len(ll_pol_rows):5d} rows")
     print(f"  quote_policy_detail.csv                  {len(full_pol_rows):5d} rows")
     print(f"  ll_quote_coverage_detail.csv             {len(ll_cov_rows):5d} rows")
-    print(f"  rate_monitoring_total_our_share_usd.csv  {len(rm_rows):5d} rows  (renewals only)")
+    print(f"  rate_monitoring.csv                      {len(rm_layer_rows):5d} rows  (layer grain, renewals only)")
+    print(f"  rate_monitoring_total_our_share_usd.csv  {len(rm_quote_rows):5d} rows  (quote grain, renewals only)")
     print(f"\nKey cardinality:  {len(quote_dim)} quotes, {len(layers)} layers, {len(coverages)} coverages")
 
 

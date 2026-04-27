@@ -14,7 +14,8 @@ dbt_demo/
 │   ├── ll_quote_policy_detail.csv
 │   ├── quote_policy_detail.csv
 │   ├── ll_quote_coverage_detail.csv
-│   └── rate_monitoring_total_our_share_usd.csv
+│   ├── rate_monitoring.csv  (layer-grain rate change)
+│   └── rate_monitoring_total_our_share_usd.csv  (quote-grain roll-up)
 ├── models/                  empty for now — staging + marts go here
 ├── macros/  tests/  analyses/  snapshots/
 └── .gitignore               target/, dbt_packages/, profiles.yml
@@ -53,7 +54,14 @@ After `dbt seed` you should have these tables in `<database>.raw_pack_b`:
 | `ll_quote_policy_detail` | 393 | (quote_id, layer_id, pas_id) |
 | `quote_policy_detail` | 393 | same as ll_quote_policy_detail |
 | `ll_quote_coverage_detail` | 520 | (quote_id, layer_id, pas_id, coverage_id) |
-| `rate_monitoring_total_our_share_usd` | 182 | quote_id (renewals only) |
+| `rate_monitoring` | ~280 | (quote_id, layer_id) (renewals only) |
+| `rate_monitoring_total_our_share_usd` | 182 | quote_id (renewals only — premium-weighted aggregation of `rate_monitoring`) |
+
+The two rate-monitoring seeds reconcile by construction: the quote-grain
+seed is built by **premium-weighted aggregation** of the layer-grain seed,
+weighted by each layer's `tech_gnwp_full`. Use the layer-grain seed for
+per-layer adequacy / attribution work; use the quote-grain seed for
+quote-level prioritisation.
 
 ## Refreshing the seeds
 

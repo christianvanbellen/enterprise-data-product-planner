@@ -559,3 +559,110 @@ models:
 
       - name: loaded_at
         description: Pipeline ingestion timestamp.
+
+  # ───────────────────────────────────────────────────────────────────────
+  - name: stg_rate_monitoring_layer
+    description: |
+      Renewal-only risk-adjusted rate-change measures at LAYER grain
+      (quote_id, layer_id). Each renewing layer carries independently drawn
+      rate-change components so primary vs excess layers can move
+      differently. Twin of stg_rate_monitoring (quote-grain), which is
+      built by premium-weighted aggregation of this seed.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [quote_id, layer_id]
+    columns:
+
+      - name: quote_id
+        description: Quote-level business key. Renewal-only — non-renewal quotes have no row here.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_ll_quote_setup')
+              field: quote_id
+
+      - name: layer_id
+        description: Layer-level business key. Composite key with quote_id.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_ll_quote_policy_detail')
+              field: layer_id
+
+      - name: expiring_inception_date
+        description: Inception date of the expiring policy (denormalised per quote).
+        tests: [not_null]
+
+      - name: expiring_expiry_date
+        description: Expiry date of the expiring policy.
+
+      - name: expiring_exposure
+        description: Insured exposure on the expiring period for this layer.
+
+      - name: expiring_limit
+        description: Layer limit on the expiring period.
+
+      - name: expiring_excess
+        description: Excess on the expiring period.
+
+      - name: expiring_deductible
+        description: Deductible on the expiring period.
+
+      - name: expiring_our_share_pct
+        description: Liberty signed-line on the expiring period (denormalised per quote).
+
+      - name: expiring_commission_pct
+        description: Commission rate on the expiring period (denormalised per quote).
+
+      - name: expiring_ggwp
+        description: Expiring Gross Gross Written Premium for this layer.
+
+      - name: expiring_gnwp
+        description: Expiring Gross Net Written Premium for this layer.
+
+      - name: expiring_modtech_gnwp
+        description: Modified Technical GNWP on the expiring period for this layer.
+
+      - name: expiring_tech_gnwp
+        description: Technical GNWP on the expiring period for this layer.
+
+      - name: expiring_as_if_ggwp
+        description: As-if-renewed expiring GGWP — the expiring premium re-quoted at current technical pricing.
+
+      - name: gross_rarc
+        description: Per-layer Gross Risk-Adjusted Rate Change.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= -0.50 and gross_rarc <= 0.50"
+              severity: warn
+
+      - name: net_rarc
+        description: Per-layer Net Risk-Adjusted Rate Change.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= -0.50 and net_rarc <= 0.50"
+              severity: warn
+
+      - name: claims_inflation
+        description: Per-layer forward claims inflation assumption applied at renewal pricing.
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: breadth_of_cover_change
+        description: Per-layer coverage scope expansion / contraction expressed as an equivalent rate-change percentage.
+
+      - name: gross_exposure_change
+        description: Per-layer year-on-year change in insured exposure.
+
+      - name: gross_limits_and_excess_change
+        description: Per-layer year-on-year change in limit / excess structure.
+
+      - name: policy_term_change
+        description: Per-layer adjustment for changes in policy term length.
+
+      - name: other_changes
+        description: Per-layer catch-all for residual rate-change adjustments.
+
+      - name: loaded_at
+        description: Pipeline ingestion timestamp.
